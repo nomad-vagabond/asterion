@@ -19,7 +19,7 @@ To use library:
 
 4. Generate virtual asteroid orbits by running script generate_orbits.py
 
-You can vsualize generated orbits by running visualize_data_gl.py
+    You can vsualize generated orbits by running visualize_data_gl.py
 
 5. Run asterion_learn.py to train classifier and predict results.
 
