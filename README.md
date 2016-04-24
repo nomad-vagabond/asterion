@@ -1,4 +1,4 @@
-Asterion
+# Asterion
 
 A library for prediction of undiscovered potentially hazardous asteroids' orbital parameters using machine learning and computer simulations.
 
@@ -25,11 +25,11 @@ You can vsualize generated orbits by running visualize_data_gl.py
 
 To work with library you need next python packeges being installed on your system:
 
-numpy
-scipy
-pandas
-sklearn
-matplotlib
+- numpy
+- scipy
+- pandas
+- sklearn
+- matplotlib
 
 Tested on Ubuntu 14.04
 
