@@ -19,7 +19,7 @@ from sklearn.neighbors.nearest_centroid import NearestCentroid
 import visualize_data as vd
 # from read_database import calc_rascend, calc_orbc, calc_rclose 
 from learn_data import get_learndata, prepare_data
-# from read_database import loadObject
+from read_database import loadObject, dumpObject
 
 
 
@@ -29,60 +29,40 @@ from learn_data import get_learndata, prepare_data
 #     return variables, target
 
 
-def rand_forest_predict():
-    rf = RandomForestClassifier(class_weight="balanced", max_leaf_nodes=15)
-    print "rf:", rf
-    fitter = rf.fit(trial_x, trial_y)
-    score = fitter.score(test_x, test_y)
-    print "score:", score
-    predict = rf.predict(test_x)
-    return predict
+# def rand_forest_predict():
+#     rf = RandomForestClassifier(class_weight="balanced", max_leaf_nodes=15)
+#     print "rf:", rf
+#     fitter = rf.fit(trial_x, trial_y)
+#     score = fitter.score(test_x, test_y)
+#     print "score:", score
+#     predict = rf.predict(test_x)
+#     return predict
 
-def knn_predict(trial_x, trial_y, test_x, test_y):
-    ### KNeighbors ###
-    knn = KNeighborsClassifier(weights='distance', algorithm='auto', n_neighbors=6)
-    # knn = RadiusNeighborsClassifier() # weights='distance
-    # knn = KNeighborsClassifier(algorithm='auto')
-    print "knn:", knn
-    fitter = knn.fit(trial_x, trial_y)
-    score = fitter.score(test_x, test_y)
-    print "score:", score
-    predict = knn.predict(test_x)
-    return predict
+# def knn_predict(trial_x, trial_y, test_x, test_y):
+#     ### KNeighbors ###
+#     knn = KNeighborsClassifier(weights='distance', algorithm='auto', n_neighbors=6)
+#     # knn = RadiusNeighborsClassifier() # weights='distance
+#     # knn = KNeighborsClassifier(algorithm='auto')
+#     print "knn:", knn
+#     fitter = knn.fit(trial_x, trial_y)
+#     score = fitter.score(test_x, test_y)
+#     print "score:", score
+#     predict = knn.predict(test_x)
+#     return predict
 
-def svc_predict(trial_x, trial_y, test_x, test_y):
-    # clf = svm.SVC(C=1, kernel='linear')
-    clf = svm.SVC()
-    # clf = svm.NuSVC()
-    # clf = svm.LinearSVC() # multi_class='crammer_singer'
-    print "clf:", clf
-    fitter = clf.fit(trial_x, trial_y)
-    score = fitter.score(test_x, test_y)
-    print "score:", score
+# def svc_predict(trial_x, trial_y, test_x, test_y):
+#     # clf = svm.SVC(C=1, kernel='linear')
+#     clf = svm.SVC()
+#     # clf = svm.NuSVC()
+#     # clf = svm.LinearSVC() # multi_class='crammer_singer'
+#     print "clf:", clf
+#     fitter = clf.fit(trial_x, trial_y)
+#     score = fitter.score(test_x, test_y)
+#     print "score:", score
     
-    predict = clf.predict(test_x)
-    # print "predict:", predict
-    return predict
-
-def grid_svc_predict():
-    scores = []
-    svc = svm.SVC(C=1, kernel='linear')
-    Cs = np.logspace(-6, -1, 10)
-    clf = GridSearchCV(estimator=svc, param_grid=dict(C=Cs), n_jobs=-1)
-    # clf = svm.SVC(kernel="poly")
-    # clf = svm.NuSVC()
-    # clf = svm.LinearSVC() # multi_class='crammer_singer'
-    print "clf:", clf
-    fitter = clf.fit(trial_x, trial_y)
-    score = fitter.best_score_
-    print "score:", score
-    svcbest = clf.best_estimator_
-    Cbest = svcbest.C
-    print "Cbest:", Cbest
-
-    predict = svcbest.predict(test_x)
-    # print "predict:", predict
-    return predict
+#     predict = clf.predict(test_x)
+#     # print "predict:", predict
+#     return predict
 
 def crossval_svc_predict(xdata, ydata):
     # svc = svm.SVC(C=1, kernel='linear')
@@ -115,45 +95,45 @@ def crossval_svc_predict(xdata, ydata):
         print "true_haz_fraction:", true_haz_fraction
     # return predict
 
-def adaboost_predict(trial_x, trial_y, test_x, test_y):
-    clf = AdaBoostClassifier()
-    print "clf:", clf
-    fitter = clf.fit(trial_x, trial_y)
-    score = fitter.score(test_x, test_y)
-    print "score:", score
+# def adaboost_predict(trial_x, trial_y, test_x, test_y):
+#     clf = AdaBoostClassifier()
+#     print "clf:", clf
+#     fitter = clf.fit(trial_x, trial_y)
+#     score = fitter.score(test_x, test_y)
+#     print "score:", score
     
-    predict = clf.predict(test_x)
-    # print "predict:", predict
-    return predict
+#     predict = clf.predict(test_x)
+#     # print "predict:", predict
+#     return predict
 
 
-def estimate(trial_x, trial_y, test_x, test_y):
+# def estimate(trial_x, trial_y, test_x, test_y):
 
-    predict = knn_predict(trial_x, trial_y, test_x, test_y)
-    # predict = svc_predict(trial_x, trial_y, test_x, test_y)
-    # predict = adaboost_predict(trial_x, trial_y, test_x, test_y)
-    # predict = rand_forest_predict()
-    # predict = grid_svc_predict()
-    # predict = crossval_svc_predict(test_x, test_y)
+#     predict = knn_predict(trial_x, trial_y, test_x, test_y)
+#     # predict = svc_predict(trial_x, trial_y, test_x, test_y)
+#     # predict = adaboost_predict(trial_x, trial_y, test_x, test_y)
+#     # predict = rand_forest_predict()
+#     # predict = grid_svc_predict()
+#     # predict = crossval_svc_predict(test_x, test_y)
 
-    test_num = len(test_y)
-    print "test_num:", test_num
-    print "len(predict):", len(predict)
+#     test_num = len(test_y)
+#     print "test_num:", test_num
+#     print "len(predict):", len(predict)
 
-    predict_match = np.array([(predict[i] == test_y[i]) for i in range(test_num)])
-    num_predict_match = np.sum(predict_match)
+#     predict_match = np.array([(predict[i] == test_y[i]) for i in range(test_num)])
+#     num_predict_match = np.sum(predict_match)
 
-    predict_haz_fraction = np.sum([(val == 1) for val in predict])/float(test_num)
-    true_haz_fraction = np.sum([(val == 1) for val in test_y])/float(test_num)
+#     predict_haz_fraction = np.sum([(val == 1) for val in predict])/float(test_num)
+#     true_haz_fraction = np.sum([(val == 1) for val in test_y])/float(test_num)
 
-    print "predict_haz_fraction:", predict_haz_fraction
-    print "true_haz_fraction:", true_haz_fraction
-    print
+#     print "predict_haz_fraction:", predict_haz_fraction
+#     print "true_haz_fraction:", true_haz_fraction
+#     print
 
-    print "len(predict):", len(predict)
-    print "predict_match:", predict_match[:10], num_predict_match
-    predict_accuracy = 1 - float(len(predict) - num_predict_match)/len(predict)
-    print "predict_accuracy:", predict_accuracy
+#     print "len(predict):", len(predict)
+#     print "predict_match:", predict_match[:10], num_predict_match
+#     predict_accuracy = 1 - float(len(predict) - num_predict_match)/len(predict)
+#     print "predict_accuracy:", predict_accuracy
 
 
 
@@ -189,7 +169,7 @@ if __name__ == '__main__':
 
     # clf = GradientBoostingClassifier(n_estimators=500, learning_rate=0.9, 
     #min_samples_split=4, min_samples_leaf=8)
-    cw = {0:1, 1:5}
+    # cw = {0:1, 1:5}
     # clf = svm.SVC(C=100, gamma=100, tol=0.1, kernel='rbf', class_weight=cw, shrinking=False)
     clf = RandomForestClassifier(class_weight="balanced", max_leaf_nodes=500, 
                                  n_estimators=50, criterion='entropy') # class_weight="balanced"
@@ -224,10 +204,12 @@ if __name__ == '__main__':
 
     # estimate(xdata_train, ydata_train, xdata_test, ydata_test)
 
-
     # xdata, ydata = get_learndata(datasets, split=False)
     # crossval_svc_predict(xdata, ydata)
     # disp_orbit.show()
+    # print clf.predict(np.array([[0.4, 0.6]]))
+
+    dumpObject(clf, 'classifier.p')
 
 
 
