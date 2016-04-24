@@ -207,9 +207,10 @@ if __name__ == '__main__':
     # xdata, ydata = get_learndata(datasets, split=False)
     # crossval_svc_predict(xdata, ydata)
     # disp_orbit.show()
-    # print clf.predict(np.array([[0.4, 0.6]]))
+    # clf = loadObject('classifier.p')
+    # print clf.predict(np.array([[0.4, 0.6]]))[0]
 
-    dumpObject(clf, 'classifier.p')
+    # dumpObject(clf, 'classifier.p')
 
 
 
