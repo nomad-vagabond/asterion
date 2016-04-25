@@ -13,15 +13,13 @@ To use library:
 
 1. Clone this repository to your hard drive.
 
-2. Make directory asteroid_data in the project root.
+2. Download asteroid database http://www.ianww.com/latest_fulldb.csv and put it to ./asteroid_data
 
-3. Download asteroid database http://www.ianww.com/latest_fulldb.csv and put it to ./asteroid_data
-
-4. Generate virtual asteroid orbits by running script generate_orbits.py
+3. Generate virtual asteroid orbits by running script generate_orbits.py
 
     You can vsualize generated orbits by running visualize_data_gl.py
 
-5. Run asterion_learn.py to train classifier and predict results.
+4. Run asterion_learn.py to train classifier on virtual asteroids and test it on real dataset.
 
 To work with library you need next python packeges being installed on your system:
 
