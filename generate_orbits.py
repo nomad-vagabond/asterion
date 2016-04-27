@@ -1,51 +1,58 @@
 import numpy as np
 import pickle 
 import pandas as pd
-# from read_database import calc_moid, get_hazMOID
-
 import read_database as rdb
-# from learn_data import loadObject, dumpObject
+from math import pi
 
-def gen_rand(data_arr, num=100):
-    amin, amax = np.min(data_arr[:,0]), np.max(data_arr[:,0])
-    emin, emax = np.min(data_arr[:,1]), np.max(data_arr[:,1])
-    imin, imax = np.min(data_arr[:,2]), np.max(data_arr[:,2])
-    wmin, wmax = np.min(data_arr[:,3]), np.max(data_arr[:,3])
-    omin, omax = 0.0, 360.0
-    qmin, qmax = np.min(data_arr[:,5]), np.max(data_arr[:,5])
-    
-    # ae = np.multiply(data_arr[:,0], data_arr[:,1])
-    # aemin, aemax = np.min(ae), np.max(ae)
-    arand = np.random.uniform(low=amin, high=amax, size=num)
-    qrand = np.random.uniform(low=qmin, high=qmax, size=num)
-    # aerand = np.random.uniform(low=aemin, high=aemax, size=num)
-    erand = np.array([(arand[i]-qrand[i])/arand[i] for i in range(int(num))])
+G = 6.67384e-11
+M = 1.989e30
 
-    randdata = np.array([arand,
-                         erand,
-                         np.random.uniform(low=imin, high=imax, size=num),
-                         np.random.uniform(low=wmin, high=wmax, size=num),
-                         np.random.uniform(low=omin, high=omax, size=num),
-                         qrand]).T
+# neo_haz_num = 1578
+# neo_nohaz_num = 5118
+
+def get_param_bounds(haz, nohaz, names):
+    data_full = pd.concat([haz[names], nohaz[names]])
+    maxvals = [np.max(data_full[name]) for name in names]
+    minvals = [np.min(data_full[name]) for name in names]
+    params = ({name:(minval, maxval) 
+              for name, minval, maxval in zip(names, minvals, maxvals)})
+    # print "params.items():", params.items()
+    return params
+
+def gen_rand_params(params=None, num=1):
+    if params is None:
+        params = rdb.loadObject('./asteroid_data/orbparams_minmax.p')
+    rand_params = ({name:np.random.uniform(low=values[0], high=values[1], 
+                    size=num) for name, values in params.items()})
+    rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
+    rand_params['per'] = 2*pi*np.sqrt(rand_params['a']**3/(G*M))/86400.0
+    if num == 1:
+        print "rand_params:", rand_params
+    return rand_params
+
+def gen_rand_orbits(params, names, num=100):
+    rand_params = gen_rand_params(params=params, num=num)
+    randdata = np.array([rand_params[name] for name in names]).T
     return randdata
+
 
 if __name__ == '__main__':
 
-    haz = rdb.loadObject('./asteroid_data/haz.p')
-    nohaz = rdb.loadObject('./asteroid_data/nohaz.p')
+    haz = rdb.loadObject('./asteroid_data/haz_test.p')
+    nohaz = rdb.loadObject('./asteroid_data/nohaz_test.p')
 
-    haz_data = haz[['a', 'e', 'i', 'w', 'om', 'q']]
-    nohaz_data = nohaz[['a', 'e', 'i', 'w', 'om', 'q']]
-    hazdata_arr = haz_data.as_matrix()
-    nohazdata_arr = nohaz_data.as_matrix()
-
-    data_full = np.concatenate((hazdata_arr, nohazdata_arr))
-
+    names = ['a', 'i', 'w', 'om', 'q', 'n', 'ma', 'epoch']
+    params = get_param_bounds(haz, nohaz, names)
+    rdb.dumpObject(params, './asteroid_data/orbparams_minmax.p')
+    gen_rand_params(params)
+    
     print "init orbit generation..."
-    randdata = gen_rand(data_full, num=1e2)
-    print "orbit generation finished."
+    names = ['a', 'e', 'i', 'w', 'om', 'q']
+    randdata = gen_rand_orbits(params, names, num=1e2)
+    print "orbit generation finished.", randdata.shape
 
-    dataframe = pd.DataFrame(randdata, columns=['a', 'e', 'i', 'w', 'om', 'q'])
+    dataframe = pd.DataFrame(randdata, columns=names)
+    
     ### CALCULATE MOID ###
     print "init MOID copmutation..."
     data = rdb.calc_moid(dataframe)

@@ -3,7 +3,7 @@
 A library for prediction of undiscovered potentially hazardous asteroids' orbital parameters using machine learning and computer simulations.
 
 Web application for analysis of asteroids on the subject of being potentially hazardous:
-https://n2k-1-nasa2016kr.c9users.io/
+http://nasa2016kr.pythonanywhere.com/
 Source available at: https://github.com/nasa2016kr/cya
 
 

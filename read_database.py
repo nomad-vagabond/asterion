@@ -120,7 +120,8 @@ if __name__ == '__main__':
     # database = pd.read_csv(database_path, sep=',', 
     #            usecols=[0,4,6,7,8,9,15,18,19,32,33,34,35,36,37,43,44,45,46,47,48,49])
     database = pd.read_csv(database_path, sep=',', usecols=['a', 'e', 'i', 'w', 'om', 'q',
-                                                            'H', 'neo', 'pha', 'moid'],
+                                                            'H', 'neo', 'pha', 'moid', 'per',
+                                                            'n', 'ma', 'epoch'],
                                                             low_memory=False)
 
     db_head = database[:10]
@@ -156,10 +157,13 @@ if __name__ == '__main__':
     # apollos_cuti2 = apollos_cuti[apollos_cuti.i < 15.0]
     # apollos_cute = apollos[apollos.e < 0.5]
     # apollos_cuti2 = apollos_cuti[apollos_cuti.i < 15.0]
-    apollos, num_apollos = cutoff_outcasts(apollos)
+    # apollos, num_apollos = cutoff_outcasts(apollos)
+
+    neos, num_neos = cutoff_outcasts(neo)
 
     ### REMOVE DIM ASTEROIDS ###
-    bright = cut_magnitude(apollos)
+    # bright = cut_magnitude(apollos)
+    bright = cut_magnitude(neos)
 
     ### SPLIT ASTEROIDS INTO BY PHA FLAG ###
     # haz, nohaz = get_hazMOID(apollos_cuti)

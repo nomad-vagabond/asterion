@@ -197,8 +197,8 @@ class OrbitDisplayGL(object):
 
 if __name__ == '__main__':
 
-    sources = ['./asteroid_data/haz_rand_1e5.p',
-               './asteroid_data/nohaz_rand_1e5.p']
+    sources = ['./asteroid_data/haz_rand_test.p',
+               './asteroid_data/nohaz_rand_test.p']
 
     # sources = ['./asteroid_data/haz.p', './asteroid_data/nohaz.p']
     cutcol = ['a', 'e', 'i', 'w', 'om']

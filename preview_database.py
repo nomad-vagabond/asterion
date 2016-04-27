@@ -30,7 +30,7 @@ import sys, os
 folder_path = sys.path[0]
 database_path = os.path.join(folder_path, os.path.dirname(""),"./asteroid_data/latest_fulldb.csv")
 database = pd.read_csv(database_path, sep=',', 
-           usecols=range(40,50),low_memory=False)
+           usecols=range(28,35),low_memory=False)
 # database = pd.read_csv(database_path, sep=',', usecols=['a', 'e', 'i', 'w', 'om', 'q',
 #                                                         'H', 'neo', 'pha', 'moid'],
 #                                                         low_memory=False)
