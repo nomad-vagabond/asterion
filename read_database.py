@@ -157,13 +157,13 @@ if __name__ == '__main__':
     # apollos_cuti2 = apollos_cuti[apollos_cuti.i < 15.0]
     # apollos_cute = apollos[apollos.e < 0.5]
     # apollos_cuti2 = apollos_cuti[apollos_cuti.i < 15.0]
-    # apollos, num_apollos = cutoff_outcasts(apollos)
+    apollos, num_apollos = cutoff_outcasts(apollos)
 
-    neos, num_neos = cutoff_outcasts(neo)
+    # neos, num_neos = cutoff_outcasts(neo)
 
     ### REMOVE DIM ASTEROIDS ###
-    # bright = cut_magnitude(apollos)
-    bright = cut_magnitude(neos)
+    bright = cut_magnitude(apollos)
+    # bright = cut_magnitude(neos)
 
     ### SPLIT ASTEROIDS INTO BY PHA FLAG ###
     # haz, nohaz = get_hazMOID(apollos_cuti)

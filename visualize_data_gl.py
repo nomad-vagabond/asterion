@@ -74,34 +74,48 @@ class OrbitDisplayGL(object):
         GL.glTranslatef(0.0, 0.0, -25.0)
         GL.glRotatef(self.angleX, 1.0, 0.0, 0.0)
         GL.glRotatef(self.angleY, 0.0, 0.0, 1.0)
+        GL.glEnable(GL.GL_ALPHA_TEST)
+        # GL.glDisable(GL.GL_BLEND)
+        GL.glEnable(GL.GL_BLEND)
+        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         # GL.glRotatef(rot, 0.0, 0.0, 1.0)
+
 
         if self.hazdata is not None:
             # GL.glDepthMask(GL.GL_FALSE)
-            GL.glColor4f(0.9, 0.2, 0.2, 1)
-            GL.glLineWidth(1)
+            GL.glColor4f(0.9, 0.2, 0.2, 0.65)
+            GL.glLineWidth(2)
             GL.glDisable(GL.GL_LIGHTING)
             GL.glCallList(2)
             GL.glEnable(GL.GL_LIGHTING)
             # GL.glDepthMask(GL.GL_TRUE)
 
+
         if self.nohazdata is not None:
+            # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            # GL.glEnable(GL.GL_BLEND)
             # GL.glDepthMask(GL.GL_FALSE)
-            GL.glColor4f(0.0, 0.6, 0.9, 0.1)
-            GL.glLineWidth(1)
+            # GL.glDisable(GL.GL_DEPTH_TEST)
+            GL.glColor4f(0.0, 0.6, 0.9, 0.5)
+            GL.glLineWidth(0.5)
             GL.glDisable(GL.GL_LIGHTING)
             GL.glCallList(3)
             GL.glEnable(GL.GL_LIGHTING)
             # GL.glDepthMask(GL.GL_TRUE)
+            # GL.glDisable(GL.GL_BLEND)
+            # GL.glEnable(GL.GL_DEPTH_TEST)
 
         # GL.glDepthMask(GL.GL_FALSE)
+        GL.glDisable(GL.GL_DEPTH_TEST)
         GL.glColor4f(0.0, 0.7, 0.1, 1)
         GL.glLineWidth(4)
         GL.glDisable(GL.GL_LIGHTING)
         GL.glCallList(1)
         GL.glEnable(GL.GL_LIGHTING)
+        GL.glEnable(GL.GL_DEPTH_TEST)
         # GL.glDepthMask(GL.GL_TRUE)
-
+        # GL.glEnable(GL.GL_BLEND)
         GLUT.glutSwapBuffers()
 
     def mouseHandle(self, button, state, x, y):
