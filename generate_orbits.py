@@ -3,6 +3,7 @@ import pickle
 import pandas as pd
 # from read_database import calc_moid, get_hazMOID
 import scipy.stats as ss
+import scipy.optimize as so
 import read_database as rdb
 import matplotlib.pyplot as plt
 import scipy
@@ -10,7 +11,7 @@ import scipy
 
 
 
-def get_density(data, num=30):
+def get_density0(data, num=30):
     dmin, dmax = min(data), max(data)
     # datanorm = (data - dmin)/(dmax - dmin)
     datanorm = data
@@ -42,7 +43,8 @@ def get_density(data, num=30):
     # pdf_fitted = gamma_pdf.pdf(bounds, *param[:-2], loc=param[-2], scale=param[-1])
     # bb = np.linspace(dmin, dmax, num*3)
     # pdf_fitted = gamma_pdf.pdf(bounds, 1.99)
-    pdf_fitted = gamma_pdf.pdf(x, a, loc=loc, scale=scale)
+    # pdf_fitted = gamma_pdf.pdf(x, a, loc=loc, scale=scale)
+    pdf_fitted = gamma_pdf.pdf(x, a, loc=loc, scale=scale) # *2000
     # plt.bar(bounds_centers, density, widths[0], color='w')
     # h = plt.hist(density, bounds_centers, color='w')
     # pp = np.linspace(0, dmax, num*4)
@@ -55,7 +57,7 @@ def get_density(data, num=30):
 
 
 
-def get_density0(data, num=20):
+def get_densityR(data, num=30):
     dmin, dmax = min(data), max(data)
     size = len(data)
     print "dmin, dmax:", dmin, dmax
@@ -75,15 +77,21 @@ def get_density0(data, num=20):
     print "density:", density, len(density)
     print "bounds:", bounds, len(bounds)
     # h = plt.hist(density, bins=range(num), color='y')
-    gamma_pdf = ss.gamma
-    a, loc, scale = gamma_pdf.fit(density, scale=dmax-dmin) # scale=dmax-dmin
+    # gamma_pdf = ss.gamma
+    chi_pdf = ss.chi
+    # a, loc, scale = gamma_pdf.fit(density, scale=dmax-dmin) # scale=dmax-dmin
+    a, loc, scale = chi_pdf.fit(density, loc=0, scale=1)
+
     print "a:", a
     print "loc:", loc
     print "scale:", scale
+    print "loc*scale:", loc*scale
     # pdf_fitted = gamma_pdf.pdf(bounds, *param[:-2], loc=param[-2], scale=param[-1])
     # bb = np.linspace(dmin, dmax, num*3)
     # pdf_fitted = gamma_pdf.pdf(bounds, 1.99)
-    pdf_fitted = gamma_pdf.pdf(pp, a, loc=loc, scale=scale)
+    # pdf_fitted = gamma_pdf.pdf(pp, a, loc=loc, scale=scale)
+    pdf_fitted = chi_pdf.pdf(pp, 1.1, loc=0, scale=0.9)
+    # pdf_fitted = gamma_pdf.pdf(pp, 1.99)
     # print "pdf_fitted:", pdf_fitted
 
     # param = gamma_pdf.fit(density)
@@ -101,6 +109,81 @@ def get_density0(data, num=20):
     # l = plt.plot(bounds, pdf_fitted, 'r--', linewidth=1)
     # l = plt.plot(pp, gamma_pdf.pdf(pp, 100, scale=scale), 'r--', linewidth=1)
     l = plt.plot(pp, pdf_fitted, 'r--', linewidth=1)
+    plt.show()
+
+
+def chidist(x, df, scale):
+    chi = ss.chi(df=df, loc=1, scale=scale)
+    return chi.pdf(x)
+
+
+
+
+
+def get_density(data, num=50):
+    dmin, dmax = min(data), max(data)
+    # print "dmin, dmax:", dmin, dmax
+    bounds = np.linspace(0, dmax, num)
+    # bounds = np.concatenate(([0.0], bounds))
+    bounds_centers = np.array([(a+b)*0.5 for a, b in zip(bounds[:-1], bounds[1:])])
+    density = np.histogram(data, bins=bounds, density=True)[0]
+    widths = np.array([(b - a) for a, b in zip(bounds[:-1], bounds[1:])])
+    # print "widths:", widths
+    pdf_sum = sum(d*w for d, w in zip(density, widths))
+    print "pdf_sum:", pdf_sum
+
+
+
+    ppx = np.linspace(0, dmax, num*8)
+    # print "density:", density, len(density)
+    # print "bounds:", bounds, len(bounds)
+    # h = plt.hist(density, bins=range(num), color='y')
+    # gamma_pdf = ss.gamma
+    # chi_pdf = ss.chi
+
+    distfunc = ss.chi
+    chid = lambda x, df, scale: distfunc.pdf(x, df, loc=dmin, scale=scale)
+    # chid = lambda x, df, loc, scale: ss.chi.pdf(x, df=df, loc=loc, scale=scale)
+    popt, pcov = so.curve_fit(chid, bounds_centers, density)
+    print "popt:", popt
+    # print "pcov:", pcov
+    # a, loc, scale = gamma_pdf.fit(density, scale=dmax-dmin) # scale=dmax-dmin
+
+    # print "a:", a
+    # print "loc:", loc
+    # print "scale:", scale
+    # print "loc*scale:", loc*scale
+    # df = 1.2
+    # scale = 0.9
+    df = popt[0]
+    # loc = popt[1]
+    loc = dmin
+    scale = popt[1]
+    print "ss.chi.cdf(dmax):", distfunc.cdf(dmax, df, loc=loc, scale=scale)
+    # pdf_fitted = gamma_pdf.pdf(bounds, *param[:-2], loc=param[-2], scale=param[-1])
+    # bb = np.linspace(dmin, dmax, num*3)
+    # pdf_fitted = gamma_pdf.pdf(bounds, 1.99)
+    # pdf_fitted = gamma_pdf.pdf(pp, a, loc=loc, scale=scale)
+    # pdf_fitted = gamma_pdf.pdf(pp, 1.99)
+    ppy = distfunc.pdf(ppx, df, loc=loc, scale=scale)
+
+    # print "pdf_fitted:", pdf_fitted
+
+    # param = gamma_pdf.fit(density)
+    # print "param:", param
+    # pdf_fitted = gamma_pdf.pdf(pp, *param[:-2], loc=param[-2], scale=param[-1])  # *(dmax-dmin)
+
+
+    # n, bins, patches = plt.hist(density, bins=range(len(density))) # bins=bounds
+    # gaussian_numbers = np.random.randn(1000)
+    # print "gaussian_numbers:", gaussian_numbers
+    # plt.hist(gaussian_numbers, bins=bounds)
+    plt.bar(bounds_centers, density, widths[0], color='w')
+    # h = plt.hist(density, bounds_centers, color='w')
+    # pp = np.linspace(0, dmax, num*4)
+    # l = plt.plot(bounds, pdf_fitted, 'r--', linewidth=1)
+    # l = plt.plot(pp, gamma_pdf.pdf(pp, 100, scale=scale), 'r--', linewidth=1)
+    l = plt.plot(ppx, ppy, 'r--', linewidth=1)
     plt.show()
 
 
