@@ -44,8 +44,9 @@ class ContinuousDistribution(object):
     def get_distribution(self, data, num=50):
         pdf = self.distfunc.pdf
         f = lambda x, shape, scale: pdf(x, shape, loc=self.dmin, scale=scale)
-        popt, pcov = so.curve_fit(f, self.sections_c, self.probs)
-        # print "popt:", popt
+        # popt, pcov = so.curve_fit(f, self.sections_c, self.probs)
+        popt, pcov = so.curve_fit(f, self.sections_c, self.probs, p0=[1.2, 1])
+        print "popt:", popt
         shape, scale = popt
         self._check_cdf(shape, scale)
         self.distfit = self.distfunc(shape, loc=self.dmin, scale=scale)
@@ -76,6 +77,53 @@ class ContinuousDistribution(object):
         bounds = np.linspace(0, self.dmax, 50)
         plt.hist(rvs, bins=bounds, normed=1, color='grey')
         self.plot_distfit()
+
+
+
+
+def compress_w(wdata):
+    """move all values below pi"""
+    w_up = wdata[wdata<=180]
+    w_down = wdata[wdata>180] - 180
+    # return np.concatenate((w_up, w_down))
+    return w_up
+
+def plot_param_distributions(distlist, npoints=1000):
+    fig = plt.figure()
+    subplots = [221,222,223,224]
+    xlabels = ['a', 'i', 'w', '1-q']
+    for subplot, dist, xlabel in zip(subplots, distlist, xlabels):
+        rvs = dist.get_rvs(size=npoints)
+        ax = fig.add_subplot(subplot)
+        ax.grid(True)
+        bounds = np.linspace(0, dist.dmax, 50)
+        ax.hist(rvs, bins=bounds, normed=1, color='grey')
+        ppx = np.linspace(0, dist.dmax, npoints)
+        ppy = dist.distfit.pdf(ppx)
+        ax.bar(dist.sections_c, dist.probs, dist.widths[0], color='w', alpha=0.7)
+        ax.plot(ppx, ppy, 'r-', lw=2)
+        ax.set_xlabel(xlabel)
+    plt.show()
+
+def get_param_distributions(data):
+    data_a = data[['a']].as_matrix().ravel()
+    # data_e = data[['e']].as_matrix()
+    data_i = data[['i']].as_matrix().ravel()
+    # data_w = compress_w(data[['w']].as_matrix().ravel())
+    data_w = data[['w']].as_matrix().ravel()
+    data_om = data[['om']].as_matrix().ravel()
+    data_q = 1 - data[['q']].as_matrix().ravel()
+
+    distfit_a = ContinuousDistribution(data_a, ss.chi)
+    distfit_i = ContinuousDistribution(data_i, ss.gamma)
+    distfit_w = ContinuousDistribution(data_w, ss.gamma)
+    # distfit_om = ContinuousDistribution(data_om, ss.gamma)
+    distfit_q = ContinuousDistribution(data_q, ss.gamma)
+
+    return [distfit_a, distfit_i, distfit_w, distfit_q]
+
+
+
 
 
 
@@ -150,13 +198,33 @@ if __name__ == '__main__':
 
 
 
+    distlist = get_param_distributions(pd.concat([haz_data, nohaz_data]))
+    # distlist = get_param_distributions(haz_data)
+    plot_param_distributions(distlist)
+
 
 
     # get_density(hazdata_arr[:,0])
-    distfit = ContinuousDistribution(hazdata_arr[:,0], ss.chi)
+    # data = pd.concat([haz_data, nohaz_data])
+    # print "lenght full:", len(data_full)
+    # print "lenght haz:", len(haz_data)
+    # print "lenght nohaz:", len(nohaz_data)
+    # print "lenght full2:", len(haz_data) + len(nohaz_data)
+
+
+
+
+    # data_i = data[['i']].as_matrix().ravel()
+    # dti = hazdata_arr[:,2]
+    # print "data_i:\n", data_i[:5], data_i.shape
+    # print "dti:\n", dti[:5], dti.shape
+
+
+    # distfit = ContinuousDistribution(data_full[:,2], ss.gamma)
+    # distfit = ContinuousDistribution(dti, ss.gamma)
     # distfit.plot_distfit()
     # distfit.get_rvs()
-    distfit.plot_rvs()
+    # distfit.plot_rvs()
     # distribution = get_distribution(hazdata_arr[:,0], ss.chi)
     # plot_distribution(distribution, maxval)
 
