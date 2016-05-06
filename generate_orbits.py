@@ -43,21 +43,34 @@ class ContinuousDistribution(object):
 
     def get_distribution(self, data, num=50):
         pdf = self.distfunc.pdf
-        f = lambda x, shape, scale: pdf(x, shape, loc=self.dmin, scale=scale)
-        # popt, pcov = so.curve_fit(f, self.sections_c, self.probs)
-        popt, pcov = so.curve_fit(f, self.sections_c, self.probs, p0=[1.2, 1])
-        print "popt:", popt
-        shape, scale = popt
-        self._check_cdf(shape, scale)
-        self.distfit = self.distfunc(shape, loc=self.dmin, scale=scale)
+        distshapes = self.distfunc.shapes
+        if distshapes is None:
+            f = lambda x, scale: pdf(x, loc=self.dmin, scale=scale)
+            self.distfit = self.distfunc(scale=self.dmax)
+            cdf = self.distfunc.cdf(self.dmax)
+        elif len(distshapes.split()) == 1:
+            f = lambda x, shape, scale: pdf(x, shape, loc=self.dmin, scale=scale)
+            popt, pcov = so.curve_fit(f, self.sections_c, self.probs, p0=[1.2, 1])
+            # print "popt:", popt
+            shape = popt[0]
+            scale = popt[1]
+            self.distfit = self.distfunc(shape, loc=self.dmin, scale=scale)
+            cdf = self.distfunc.cdf(self.dmax, shape, loc=self.dmin, scale=scale)
+        elif len(distshapes.split()) == 2:
+            f = lambda x, shape1, shape2, scale: pdf(x, shape1, shape2, loc=self.dmin, scale=scale)
+            popt, pcov = so.curve_fit(f, self.sections_c, self.probs, p0=[1.2, 1.2, 1]) 
+            # print "popt:", popt
+            shapes = popt[:2]
+            scale = popt[2]
+            self.distfit = self.distfunc(shapes[0], shapes[1], loc=self.dmin, scale=scale)
+            cdf = self.distfunc.cdf(self.dmax, shapes[0], shapes[1], loc=self.dmin, scale=scale)
+        else:
+            raise ValueError("specified distribution currently is not supported")
+        print "cdf(dmax):", cdf
 
     def _check_histogram(self):
         pdf_sum = sum(d*w for d, w in zip(self.probs, self.widths))
         print "pdf_sum:", pdf_sum
-
-    def _check_cdf(self, shape, scale):
-        cdf = self.distfunc.cdf(self.dmax, shape, loc=self.dmin, scale=scale)
-        print "cdf(dmax):", cdf
 
     def get_rvs(self, size=100):
         rvs = self.distfit.rvs(size=size)
@@ -78,20 +91,17 @@ class ContinuousDistribution(object):
         plt.hist(rvs, bins=bounds, normed=1, color='grey')
         self.plot_distfit()
 
-
-
-
-def compress_w(wdata):
-    """move all values below pi"""
-    w_up = wdata[wdata<=180]
-    w_down = wdata[wdata>180] - 180
-    # return np.concatenate((w_up, w_down))
-    return w_up
+# def compress_w(wdata):
+#     """move all values below pi"""
+#     w_up = wdata[wdata<=180]
+#     w_down = wdata[wdata>180] - 180
+#     # return np.concatenate((w_up, w_down))
+#     return w_up
 
 def plot_param_distributions(distlist, npoints=1000):
     fig = plt.figure()
-    subplots = [221,222,223,224]
-    xlabels = ['a', 'i', 'w', '1-q']
+    subplots = [321,322,323,324,325]
+    xlabels = ['a', 'i', 'w', 'omega', '1-q']
     for subplot, dist, xlabel in zip(subplots, distlist, xlabels):
         rvs = dist.get_rvs(size=npoints)
         ax = fig.add_subplot(subplot)
@@ -116,11 +126,11 @@ def get_param_distributions(data):
 
     distfit_a = ContinuousDistribution(data_a, ss.chi)
     distfit_i = ContinuousDistribution(data_i, ss.gamma)
-    distfit_w = ContinuousDistribution(data_w, ss.gamma)
-    # distfit_om = ContinuousDistribution(data_om, ss.gamma)
-    distfit_q = ContinuousDistribution(data_q, ss.gamma)
+    distfit_w = ContinuousDistribution(data_w, ss.uniform)
+    distfit_om = ContinuousDistribution(data_om, ss.uniform)
+    distfit_q = ContinuousDistribution(data_q, ss.beta)
 
-    return [distfit_a, distfit_i, distfit_w, distfit_q]
+    return [distfit_a, distfit_i, distfit_w, distfit_om, distfit_q]
 
 
 
