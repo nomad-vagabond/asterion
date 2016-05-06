@@ -6,6 +6,7 @@ from math import pi
 
 G = 6.67384e-11
 M = 1.989e30
+AU = 149597870700
 
 # neo_haz_num = 1578
 # neo_nohaz_num = 5118
@@ -25,7 +26,7 @@ def gen_rand_params(params=None, num=1):
     rand_params = ({name:np.random.uniform(low=values[0], high=values[1], 
                     size=num) for name, values in params.items()})
     rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
-    rand_params['per'] = 2*pi*np.sqrt(rand_params['a']**3/(G*M))/86400.0
+    rand_params['per'] = 2*pi*np.sqrt((rand_params['a']*AU)**3/(G*M))/86400.0
     if num == 1:
         print "rand_params:", rand_params
     return rand_params
