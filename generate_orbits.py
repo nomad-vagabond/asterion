@@ -15,6 +15,7 @@ import scipy
 
 G = 6.67384e-11
 M = 1.989e30
+AU = 149597870700
 
 class ContinuousDistribution(object):
     """
@@ -218,7 +219,7 @@ def gen_rand_params(params=None, distdict=None, num=1):
                         for name, contdist in distdict.items()})
     try:
         rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
-        rand_params['per'] = 2*pi*np.sqrt(rand_params['a']**3/(G*M))/86400.0
+        rand_params['per'] = 2*pi*np.sqrt((rand_params['a']*AU)**3/(G*M))/86400.0
     except:
         pass
     # if num == 1:
