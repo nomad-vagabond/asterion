@@ -1,10 +1,8 @@
 import numpy as np
 import pickle 
 import pandas as pd
-
 import read_database as rdb
-from math import pi
-
+from math import pi, sqrt
 # from read_database import calc_moid, get_hazMOID
 import scipy.stats as ss
 import scipy.optimize as so
@@ -29,7 +27,6 @@ class ContinuousDistribution(object):
     distfunc: scipy.stats countinuous random variable class.
               Currently supports continuous random variables with 
               shape parameter.
-    
     """
     def __init__(self, data, distfunc):
         self.distfunc = distfunc
@@ -44,6 +41,7 @@ class ContinuousDistribution(object):
         self.probs = np.histogram(data, bins=bounds, density=True)[0]
         self.sections_c = np.array([(a+b)*0.5 for a, b in sections])
         self.widths = np.array([(b - a) for a, b in sections])
+        self.bounds = bounds[:-1]
         self._check_histogram()
         # print "widths:", widths
 
@@ -97,106 +95,40 @@ class ContinuousDistribution(object):
         plt.hist(rvs, bins=bounds, normed=1, color='grey')
         self.plot_distfit()
 
-# def compress_w(wdata):
-#     """move all values below pi"""
-#     w_up = wdata[wdata<=180]
-#     w_down = wdata[wdata>180] - 180
-#     # return np.concatenate((w_up, w_down))
-#     return w_up
 
-def plot_param_distributions(distlist, npoints=1000):
+def get_subplotnum(n):
+    b = int(sqrt(n))
+    a = int(float(n)/b)
+    m = n % b
+    if m > 0:
+        a +=1
+    return str(a) + str(b)
+
+def plot_param_distributions(distlist, xlabels, npoints=1000):
     fig = plt.figure()
-    subplots = [321,322,323,324,325]
-    xlabels = ['a', 'i', 'w', 'omega', 'q']
+    subplot_base = get_subplotnum(len(distlist))
+    subplots = [int(subplot_base + str(i+1)) for i in range(len(distlist))]
     for subplot, dist, xlabel in zip(subplots, distlist, xlabels):
         rvs = dist.get_rvs(size=npoints)
         ax = fig.add_subplot(subplot)
         ax.grid(True)
         bounds = np.linspace(0, dist.dmax, 50)
-        ax.hist(rvs, bins=bounds, normed=1, color='grey')
+        ax.hist(rvs, bins=bounds, normed=1, color='slategray', lw=0, zorder=0)
         ppx = np.linspace(0, dist.dmax, npoints)
         ppy = dist.distfit.pdf(ppx)
-        ax.bar(dist.sections_c, dist.probs, dist.widths[0], color='w', alpha=0.7)
-        ax.plot(ppx, ppy, 'r-', lw=2)
+        ax.bar(dist.bounds, dist.probs, dist.widths[0], color='lightsteelblue', alpha=0.6, zorder=1)
+        distcolor = 'cornflowerblue' # 'limegreen'
+        ax.plot(ppx, ppy, color=distcolor, ls='-', lw=2, zorder=3)
+        ax.fill_between(ppx, 0, ppy, facecolor=distcolor, zorder=2, alpha=0.3)
         ax.set_xlabel(xlabel)
+        ax.set_ylim(0, None)
+        ax.set_xlim(0, dist.dmax)
     plt.show()
 
 def get_param_distributions(data, names, statdists):
     contdists = [ContinuousDistribution(data[[name]].as_matrix().ravel(), dist)
                  for name, dist in zip(names, statdists)]
-
     return contdists
-
-
-
-    # data_a = data[['a']].as_matrix().ravel()
-    # # data_e = data[['e']].as_matrix()
-    # data_i = data[['i']].as_matrix().ravel()
-    # # data_w = compress_w(data[['w']].as_matrix().ravel())
-    # data_w = data[['w']].as_matrix().ravel()
-    # data_om = data[['om']].as_matrix().ravel()
-    # data_q = 1 - data[['q']].as_matrix().ravel()
-
-    # distfit_a = ContinuousDistribution(data_a, ss.chi)
-    # distfit_i = ContinuousDistribution(data_i, ss.gamma)
-    # distfit_w = ContinuousDistribution(data_w, ss.uniform)
-    # distfit_om = ContinuousDistribution(data_om, ss.uniform)
-    # distfit_q = ContinuousDistribution(data_q, ss.beta)
-
-    # return [distfit_a, distfit_i, distfit_w, distfit_om, distfit_q]
-
-# def gen_rand_asteroid(data_arr):
-#     params = get_param_bounds(data_arr)
-#     # print "params a:", params['a'][0], params['a'][1]
-#     a = np.random.uniform(low=params['a'][0], high=params['a'][1], size=1)[0]
-#     i = np.random.uniform(low=params['i'][0], high=params['i'][1], size=1)[0]
-#     w = np.random.uniform(low=params['w'][0], high=params['w'][1], size=1)[0]
-#     om = np.random.uniform(low=params['om'][0], high=params['om'][1], size=1)[0]
-#     q = np.random.uniform(low=params['q'][0], high=params['q'][1], size=1)[0]
-#     e = (a - q)/a
-#     return a, e, w, i, om
-
-
-# def get_param_bounds(data_arr):
-#     amin, amax = np.min(data_arr[:,0]), np.max(data_arr[:,0])
-#     # emin, emax = np.min(data_arr[:,1]), np.max(data_arr[:,1])
-#     imin, imax = np.min(data_arr[:,2]), np.max(data_arr[:,2])
-#     wmin, wmax = np.min(data_arr[:,3]), np.max(data_arr[:,3])
-#     omin, omax = 0.0, 360.0
-#     qmin, qmax = np.min(data_arr[:,5]), np.max(data_arr[:,5])
-#     params = {'a': (amin, amax), 
-#               'i': (imin, imax), 
-#               'w': (wmin, wmax), 
-#               'om': (omin, omax), 
-#               'q': (qmin, qmax)}
-#     return params
-
-
-# def gen_rand(data_arr, num=100):
-#     amin, amax = np.min(data_arr[:,0]), np.max(data_arr[:,0])
-#     emin, emax = np.min(data_arr[:,1]), np.max(data_arr[:,1])
-#     imin, imax = np.min(data_arr[:,2]), np.max(data_arr[:,2])
-#     wmin, wmax = np.min(data_arr[:,3]), np.max(data_arr[:,3])
-#     omin, omax = 0.0, 360.0
-#     qmin, qmax = np.min(data_arr[:,5]), np.max(data_arr[:,5])
-    
-#     # ae = np.multiply(data_arr[:,0], data_arr[:,1])
-#     # aemin, aemax = np.min(ae), np.max(ae)
-#     arand = np.random.uniform(low=amin, high=amax, size=num)
-#     qrand = np.random.uniform(low=qmin, high=qmax, size=num)
-#     # aerand = np.random.uniform(low=aemin, high=aemax, size=num)
-#     erand = np.array([(arand[i]-qrand[i])/arand[i] for i in range(int(num))])
-
-#     randdata = np.array([arand,
-#                          erand,
-#                          np.random.uniform(low=imin, high=imax, size=num),
-#                          np.random.uniform(low=wmin, high=wmax, size=num),
-#                          np.random.uniform(low=omin, high=omax, size=num),
-#                          qrand]).T
-#     return randdata
-
-
-
 
 def get_param_bounds(haz, nohaz, names):
     data_full = pd.concat([haz[names], nohaz[names]])
@@ -214,7 +146,6 @@ def gen_rand_params(params=None, distdict=None, num=1):
         rand_params = ({name:np.random.uniform(low=values[0], high=values[1], 
                         size=num) for name, values in params.items()})
     else:
-        # names = params.keys()
         rand_params = ({name: contdist.get_rvs(size=num)
                         for name, contdist in distdict.items()})
     try:
@@ -229,13 +160,9 @@ def gen_rand_params(params=None, distdict=None, num=1):
 def gen_rand_orbits(params, names, distlist, num=100):
     distdict = {name:dist for name, dist in zip(names, distlist)}
     rand_params = gen_rand_params(distdict=distdict, num=num)
-    # print "rand_params:"
-    # for item in rand_params.items():
-    #     print item
     names_extend = rand_params.keys()
     randdata = np.array([rand_params[name] for name in names_extend]).T
     dataframe = pd.DataFrame(randdata, columns=names_extend)
-    # return randdata
     return dataframe
 
 
@@ -253,180 +180,24 @@ if __name__ == '__main__':
     print "init orbit generation..."
     # names = ['a', 'e', 'i', 'w', 'om', 'q']
     names = ['a', 'i', 'w', 'om', 'q']
-    statdists = [ss.chi, ss.gamma, ss.uniform, ss.uniform, ss.beta]
-
+    statdists = [ss.chi, ss.gamma, ss.uniform, ss.uniform, ss.beta, ss.uniform, ss.beta]
     data_full = pd.concat([haz[names], nohaz[names]])
     distlist = get_param_distributions(data_full, names, statdists)
-    
-    plot_param_distributions(distlist)
-    randdata = gen_rand_orbits(params, names, distlist, num=2e3)
-    # print "orbit generation finished.", randdata.shape
-
-    # dataframe = pd.DataFrame(randdata, columns=names)
-    # dataframe = gen_rand_orbits(params, names, distlist, num=2e3)
-    print "randdata:\n", randdata[:5]
+    randdata = gen_rand_orbits(params, names, distlist, num=100)
+    print "orbit generation finished."
+    print "randdata sample:\n", randdata[:5]
+    plot_param_distributions(distlist, names)
     
     ### CALCULATE MOID ###
     print "init MOID copmutation..."
     data = rdb.calc_moid(randdata)
     print "MOID copmutation finished."
-
-
-    # distlist = get_param_distributions(pd.concat([haz_data, nohaz_data]))
-    # distlist = get_param_distributions(haz_data)
-    # plot_param_distributions(distlist)
-
-
-
-    # get_density(hazdata_arr[:,0])
-    # data = pd.concat([haz_data, nohaz_data])
-    # print "lenght full:", len(data_full)
-    # print "lenght haz:", len(haz_data)
-    # print "lenght nohaz:", len(nohaz_data)
-    # print "lenght full2:", len(haz_data) + len(nohaz_data)
-
-
-
-
-    # data_i = data[['i']].as_matrix().ravel()
-    # dti = hazdata_arr[:,2]
-    # print "data_i:\n", data_i[:5], data_i.shape
-    # print "dti:\n", dti[:5], dti.shape
-
-
-    # distfit = ContinuousDistribution(data_full[:,2], ss.gamma)
-    # distfit = ContinuousDistribution(dti, ss.gamma)
-    # distfit.plot_distfit()
-    # distfit.get_rvs()
-    # distfit.plot_rvs()
-    # distribution = get_distribution(hazdata_arr[:,0], ss.chi)
-    # plot_distribution(distribution, maxval)
-
-    # print "init orbit generation..."
-    # randdata = gen_rand(data_full, num=1e2)
-    # print "orbit generation finished."
-
-    # dataframe = pd.DataFrame(randdata, columns=['a', 'e', 'i', 'w', 'om', 'q'])
-    # ### CALCULATE MOID ###
-    # print "init MOID copmutation..."
-    # data = rdb.calc_moid(dataframe)
-    # print "MOID copmutation finished."
-
-    # # print "randdata sample:", randdata[:10]
-    # print "dataframe:\n", dataframe[:10]
-
     # haz, nohaz = rdb.get_hazMOID(data)
 
-    # rdb.dumpObject(haz, './asteroid_data/haz_rand_test.p')
-    # rdb.dumpObject(nohaz, './asteroid_data/nohaz_rand_test.p')
+    ### DUMP RANDOM ORBITS ###
+    rdb.dumpObject(haz, './asteroid_data/haz_rand_test.p')
+    rdb.dumpObject(nohaz, './asteroid_data/nohaz_rand_test.p')
 
 
 
 
-
-
-
-# def get_density0(data, num=30):
-#     dmin, dmax = min(data), max(data)
-#     # datanorm = (data - dmin)/(dmax - dmin)
-#     datanorm = data
-#     size = len(data)
-#     print "size:", size
-#     print "dmin, dmax:", dmin, dmax
-#     bounds = np.linspace(dmin, dmax, num)
-#     # bounds = np.linspace(0, 1, num)
-#     x = scipy.arange(size)
-#     x = np.linspace(dmin, dmax, num*16)
-#     # bounds = np.concatenate(([0.0], bounds))
-#     # bounds_centers = np.array([(a+b)*0.5 for a, b in zip(bounds[:-1], bounds[1:])])
-#     # density = np.histogram(data - dmin, bins=bounds, density=True)[0]
-#     # widths = np.array([(b - a) for a, b in zip(bounds[:-1], bounds[1:])])
-
-#     h = plt.hist(datanorm, bins=bounds, color='w')
-
-
-#     # pp = np.linspace(dmin, dmax, num*16)
-#     pp = np.linspace(0, 1, num*16)
-#     # print "density:", density, len(density)
-#     print "bounds:", bounds, len(bounds)
-#     # h = plt.hist(density, bins=range(num), color='y')
-#     gamma_pdf = ss.gamma
-#     a, loc, scale = gamma_pdf.fit(datanorm) # scale=dmax-dmin
-#     print "a:", a
-#     print "loc:", loc
-#     print "scale:", scale
-#     # pdf_fitted = gamma_pdf.pdf(bounds, *param[:-2], loc=param[-2], scale=param[-1])
-#     # bb = np.linspace(dmin, dmax, num*3)
-#     # pdf_fitted = gamma_pdf.pdf(bounds, 1.99)
-#     # pdf_fitted = gamma_pdf.pdf(x, a, loc=loc, scale=scale)
-#     pdf_fitted = gamma_pdf.pdf(x, a, loc=loc, scale=scale) # *2000
-#     # plt.bar(bounds_centers, density, widths[0], color='w')
-#     # h = plt.hist(density, bounds_centers, color='w')
-#     # pp = np.linspace(0, dmax, num*4)
-#     # l = plt.plot(bounds, pdf_fitted, 'r--', linewidth=1)
-#     # l = plt.plot(pp, gamma_pdf.pdf(pp, 100, scale=scale), 'r--', linewidth=1)
-#     l = plt.plot(x, pdf_fitted, 'r--', linewidth=1)
-#     plt.xlim(dmin, dmax)
-#     plt.show()
-
-
-
-
-# def get_densityR(data, num=30):
-#     dmin, dmax = min(data), max(data)
-#     size = len(data)
-#     print "dmin, dmax:", dmin, dmax
-#     bounds = np.linspace(0, dmax-dmin, num)
-#     # bounds = np.concatenate(([0.0], bounds))
-#     bounds_centers = np.array([(a+b)*0.5 for a, b in zip(bounds[:-1], bounds[1:])])
-#     density = np.histogram(data - dmin, bins=bounds, density=True)[0]
-#     widths = np.array([(b - a) for a, b in zip(bounds[:-1], bounds[1:])])
-
-#     print "widths:", widths
-#     pdf_sum = sum(d*w for d, w in zip(density, widths))
-#     print "pdf_sum:", pdf_sum
-
-
-
-#     pp = np.linspace(0, dmax-dmin, num*8)
-#     print "density:", density, len(density)
-#     print "bounds:", bounds, len(bounds)
-#     # h = plt.hist(density, bins=range(num), color='y')
-#     # gamma_pdf = ss.gamma
-#     chi_pdf = ss.chi
-#     # a, loc, scale = gamma_pdf.fit(density, scale=dmax-dmin) # scale=dmax-dmin
-#     a, loc, scale = chi_pdf.fit(density, loc=0, scale=1)
-
-#     print "a:", a
-#     print "loc:", loc
-#     print "scale:", scale
-#     print "loc*scale:", loc*scale
-#     # pdf_fitted = gamma_pdf.pdf(bounds, *param[:-2], loc=param[-2], scale=param[-1])
-#     # bb = np.linspace(dmin, dmax, num*3)
-#     # pdf_fitted = gamma_pdf.pdf(bounds, 1.99)
-#     # pdf_fitted = gamma_pdf.pdf(pp, a, loc=loc, scale=scale)
-#     pdf_fitted = chi_pdf.pdf(pp, 1.1, loc=0, scale=0.9)
-#     # pdf_fitted = gamma_pdf.pdf(pp, 1.99)
-#     # print "pdf_fitted:", pdf_fitted
-
-#     # param = gamma_pdf.fit(density)
-#     # print "param:", param
-#     # pdf_fitted = gamma_pdf.pdf(pp, *param[:-2], loc=param[-2], scale=param[-1])  # *(dmax-dmin)
-
-
-#     # n, bins, patches = plt.hist(density, bins=range(len(density))) # bins=bounds
-#     # gaussian_numbers = np.random.randn(1000)
-#     # print "gaussian_numbers:", gaussian_numbers
-#     # plt.hist(gaussian_numbers, bins=bounds)
-#     plt.bar(bounds_centers, density, widths[0], color='w')
-#     # h = plt.hist(density, bounds_centers, color='w')
-#     # pp = np.linspace(0, dmax, num*4)
-#     # l = plt.plot(bounds, pdf_fitted, 'r--', linewidth=1)
-#     # l = plt.plot(pp, gamma_pdf.pdf(pp, 100, scale=scale), 'r--', linewidth=1)
-#     l = plt.plot(pp, pdf_fitted, 'r--', linewidth=1)
-#     plt.show()
-
-
-# def chidist(x, df, scale):
-#     chi = ss.chi(df=df, loc=1, scale=scale)
-#     return chi.pdf(x)
