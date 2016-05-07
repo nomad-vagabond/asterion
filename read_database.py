@@ -1,9 +1,10 @@
-import sys, os, trace, multiprocessing
+import sys, os, trace, multiprocessing, time
+from multiprocessing import Pool, Lock
 import numpy as np
 import pandas as pd
 from numpy.linalg import norm
 import pickle  
-
+from functools import partial
 import calculate_orbits as co
 
 
@@ -71,13 +72,32 @@ def cutoff_outcasts(data):
     data_cuti = data_cuta[data_cuta.i < 100.]
     return data_cuti, len(data_cuti)
 
+def append_moid(ir):
+    index, row = ir
+    w_, i_, om_ = np.radians([row.w, row.i, row.om])
+    moid = co.get_moid(row.a, row.e, w_, i_, om_)
+    # data.set_value(index, 'moid', moid)
+    return (index, moid)
+
 def calc_moid(data):
     """append column with values of moid"""
+    corenums = multiprocessing.cpu_count()
+    if corenums > 1:
+        corenums -= 1
+    pool = Pool(processes=corenums)
+    joblist = [(index, row) for index, row in data.iterrows()]
+    # pool.map(partial(append_moid, data=data), joblist)
+    mapresult = pool.map_async(append_moid, joblist)
+    pool.close()
+    pool.join()
+    for index, moid in mapresult.get():
+        data.set_value(index, 'moid', moid)
+
+def calc_moid_1thread(data):
     for index, row in data.iterrows():
         w_, i_, om_ = np.radians([row.w, row.i, row.om])
         moid = co.get_moid(row.a, row.e, w_, i_, om_)
         data.set_value(index, 'moid', moid)
-    return data
 
 def calc_rascend(data):
     """append column with values of ascending node distance"""
@@ -132,12 +152,14 @@ if __name__ == '__main__':
 
     ### RECALCULATE MOID BASED ON ORBITAL PARAMETERS ###
     print "init MOID copmutation..."
-    neo = calc_moid(neo)
-    print "MOID copmutation finished."
+    t0 = time.time()
+    calc_moid(neo)
+    t1 = time.time() - t0
+    print "MOID copmutation finished in %f seconds." % t1
 
     ### ADD ASCENDING NODE DISTANCE ###
     # calc_rascend(neo)
-    # print "neo:", neo[:10]
+    print "neo:", neo[:10]
 
     ### SPLIT BY GROUPS ###
     apollos, num_apollos = get_apollos(neo)

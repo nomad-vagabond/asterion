@@ -9,6 +9,7 @@ import scipy.optimize as so
 import read_database as rdb
 import matplotlib.pyplot as plt
 import scipy
+import time
 # from learn_data import loadObject, dumpObject
 
 G = 6.67384e-11
@@ -119,7 +120,7 @@ def plot_param_distributions(distlist, xlabels, npoints=1000):
         ax.bar(dist.bounds, dist.probs, dist.widths[0], color='lightsteelblue', alpha=0.6, zorder=1)
         distcolor = 'cornflowerblue' # 'limegreen'
         ax.plot(ppx, ppy, color=distcolor, ls='-', lw=2, zorder=3)
-        ax.fill_between(ppx, 0, ppy, facecolor=distcolor, zorder=2, alpha=0.3)
+        # ax.fill_between(ppx, 0, ppy, facecolor=distcolor, zorder=2, alpha=0.3)
         ax.set_xlabel(xlabel)
         ax.set_ylim(0, None)
         ax.set_xlim(0, dist.dmax)
@@ -190,13 +191,16 @@ if __name__ == '__main__':
     
     ### CALCULATE MOID ###
     print "init MOID copmutation..."
+    t0 = time.time()
     data = rdb.calc_moid(randdata)
-    print "MOID copmutation finished."
+    t1 = time.time() - t0
+    print "MOID copmutation finished in %f seconds." % t1
     # haz, nohaz = rdb.get_hazMOID(data)
 
     ### DUMP RANDOM ORBITS ###
-    rdb.dumpObject(haz, './asteroid_data/haz_rand_test.p')
-    rdb.dumpObject(nohaz, './asteroid_data/nohaz_rand_test.p')
+    haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
+    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_test.p')
+    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_test.p')
 
 
 
