@@ -7,23 +7,59 @@ import pickle, urllib
 from functools import partial
 import calculate_orbits as co
 
+database_url = "http://www.ianww.com/latest_fulldb.csv"
+database_path = "./asteroid_data/latest_fulldb.csv"
 
 print_msg = {
+    'read_csv_start': "Loading asteroid database...",
+    'read_csv_finish': "Asteroid database loaded in %f seconds.",
     'calc_moid_start': "init MOID copmutation...",
     'calc_moid_finish': "MOID copmutation finished in %f seconds.",
-    'download_start': "Downloading database...",
-    'download_finish': "Download finished in %f seconds."
+    'retrieve_database_start': "Downloading database...",
+    'retrieve_database_finish': "Download finished in %f seconds."
     }
 
-def retrieve_database(database_url, filepath, verbose=False):
-    if verbose:
-        print print_msg['download_start']
-    t0 = time.time()
+
+def print_jobtime(func):
+    def wrapped(*args, **kwargs):
+        func_name = func.__name__
+        finish = False
+        if kwargs.has_key('jobtime') and kwargs['jobtime']:
+            print print_msg[func_name + '_start']
+            t0 = time.time()
+            finish = True
+            del kwargs['jobtime']
+        res = func(*args, **kwargs)
+        if finish:
+            t1 = time.time()
+            print print_msg[func_name + '_finish'] % (t1-t0)
+        return res
+    return wrapped
+
+# read_csv = print_jobtime(pd.read_csv)
+
+# @print_jobtime
+# def read_csv(*args, **kwargs):
+#     return pd.read_csv(*args, **kwargs)
+
+def load_database(columns, jobtime=False):
+    if not os.path.exists(database_path):
+        retrieve_database(database_url, database_path, jobtime=jobtime)
+    read_csv = print_jobtime(pd.read_csv)
+    database = read_csv(database_path, sep=',', usecols=columns, 
+                        low_memory=False, jobtime=jobtime)
+    return database
+
+@print_jobtime
+def retrieve_database(database_url, filepath):
+    # if jobtime:
+    #     print print_msg['download_start']
+    # t0 = time.time()
     database = urllib.URLopener()
     database.retrieve(database_url, filepath)
-    t1 = time.time()
-    if verbose:
-        print print_msg['download_finish'] % (t1-t0)
+    # t1 = time.time()
+    # if jobtime:
+    #     print print_msg['download_finish'] % (t1-t0)
 
 def loadObject(fname):
     obj_file = open(fname,'r')
@@ -40,15 +76,10 @@ def cut_magnitude(database):
     cut_h = database[database.H < 22.0]
     return cut_h
 
-def get_neo(database):
+def get_neo(database, subset):
     database_neo = database[database.neo == "Y"]
-    # print "database_neo sample:\n", database_neo[50:100]
-    # print "len(database_neo):", len(database_neo)
-    # database_clear = database_neo.dropna(subset=['pha', 'H', 'e', 'a', 'q',
-    #                                                'i', 'om', 'w', 'per_y',
-    #                                                'moid', 't_jup'])
-    database_clear = database_neo.dropna(subset=['pha', 'H', 'e', 'a', 'q',
-                                                 'i', 'om', 'w', 'moid'])
+    # subset = ['pha', 'H', 'e', 'a', 'q', 'i', 'om', 'w', 'moid']
+    database_clear = database_neo.dropna(subset=subset)
     return database_clear, len(database_clear)
 
 def get_apollos(database):
@@ -94,11 +125,9 @@ def append_moid(ir):
     # data.set_value(index, 'moid', moid)
     return (index, moid)
 
-def calc_moid(data, verbose=False):
+@print_jobtime
+def calc_moid(data):
     """append column with values of moid"""
-    if verbose:
-        print print_msg['calc_moid_start']
-    t0 = time.time()
     corenums = multiprocessing.cpu_count()
     if corenums > 1:
         corenums -= 1
@@ -110,21 +139,13 @@ def calc_moid(data, verbose=False):
     pool.join()
     for index, moid in mapresult.get():
         data.set_value(index, 'moid', moid)
-    t1 = time.time()
-    if verbose:
-        print print_msg['calc_moid_finish'] % (t1-t0)
 
-def calc_moid_1thread(data, verbose=False):
-    if verbose:
-        print print_msg['calc_moid_start']
-    t0 = time.time()
+# @print_jobtime
+def calc_moid_1(data):
     for index, row in data.iterrows():
         w_, i_, om_ = np.radians([row.w, row.i, row.om])
         moid = co.get_moid(row.a, row.e, w_, i_, om_)
         data.set_value(index, 'moid', moid)
-    t1 = time.time()
-    if verbose:
-        print print_msg['calc_moid_finish'] % (t1-t0)
 
 def calc_rascend(data):
     """append column with values of ascending node distance"""
@@ -154,7 +175,6 @@ def calc_orbc(data):
         data.set_value(index, 'cz', c[2])
 
 
-
 if __name__ == '__main__':
 
     ### READ ASTEROID DATABASE ###
@@ -163,7 +183,7 @@ if __name__ == '__main__':
     database_path = "./asteroid_data/latest_fulldb.csv"
     if not os.path.exists(database_path):
         database_url = "http://www.ianww.com/latest_fulldb.csv"
-        retrieve_database(database_url, database_path, verbose=True)
+        retrieve_database(database_url, database_path, jobtime=True)
 
 
     # folder_path = sys.path[0]
@@ -171,19 +191,20 @@ if __name__ == '__main__':
     #                 "./asteroid_data/latest_fulldb.csv")
     # database = pd.read_csv(database_path, sep=',', usecols=[0,4,6,7,8,9,15,
     #                        18,19,32,33,34,35,36,37,43,44,45,46,47,48,49])
-    database = pd.read_csv(database_path, sep=',', usecols=[
-                           'a', 'e', 'i', 'w', 'om', 'q', 'H', 'neo',
-                           'pha', 'moid', 'per', 'n', 'ma', 'epoch'], 
-                           low_memory=False)
+    columns = ['a', 'e', 'i', 'w', 'om', 'q', 'H', 'neo', 
+               'pha', 'moid', 'per', 'n', 'ma', 'epoch']
+    database = read_csv(database_path, sep=',', usecols=columns,
+                        low_memory=False, jobtime=True)
 
     db_head = database[:10]
     print "db_head:\n", db_head
 
     ### EXTRACT NEOS ###
-    neo, num_neo = get_neo(database)
+    neo, num_neo = get_neo(database, columns)
 
     ### RECALCULATE MOID BASED ON ORBITAL PARAMETERS ###
-    calc_moid(neo, verbose=True)
+    calc_moid(neo, jobtime=True)
+
 
     ### ADD ASCENDING NODE DISTANCE ###
     # calc_rascend(neo)

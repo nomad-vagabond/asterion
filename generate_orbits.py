@@ -1,16 +1,17 @@
-import numpy as np
-import pickle 
-import pandas as pd
-import read_database as rdb
+import pickle
+import time
 from math import pi, sqrt
-# from read_database import calc_moid, get_hazMOID
+
+import numpy as np
+import pandas as pd
 import scipy.stats as ss
 import scipy.optimize as so
-import read_database as rdb
 import matplotlib.pyplot as plt
-import scipy
-import time
-# from learn_data import loadObject, dumpObject
+# import scipy
+
+import read_database as rdb
+
+### ======================= ###
 
 G = 6.67384e-11
 M = 1.989e30
@@ -29,11 +30,14 @@ class ContinuousDistribution(object):
               Currently supports continuous random variables with 
               shape parameter.
     """
-    def __init__(self, data, distfunc):
+    def __init__(self, data, distfunc, verbose=False):
         self.distfunc = distfunc
         self.dmin, self.dmax = min(data), max(data)
-        self.get_histogram(data)
-        self.get_distribution(data)
+        pdf_sum = self.get_histogram(data)
+        cdf_max = self.get_distribution(data)
+        if verbose:
+            print "Data cdf(xmax): %f \t" % pdf_sum, 
+            print "%s_cdf(xmax): %f" % (distfunc.name, cdf_max) 
         # return self.distfit
 
     def get_histogram(self, data, num=50):
@@ -43,8 +47,10 @@ class ContinuousDistribution(object):
         self.sections_c = np.array([(a+b)*0.5 for a, b in sections])
         self.widths = np.array([(b - a) for a, b in sections])
         self.bounds = bounds[:-1]
-        self._check_histogram()
+        pdf_sum = sum(d*w for d, w in zip(self.probs, self.widths))
+        # self._check_histogram()
         # print "widths:", widths
+        return pdf_sum
 
     def get_distribution(self, data, num=50):
         pdf = self.distfunc.pdf
@@ -57,25 +63,26 @@ class ContinuousDistribution(object):
             f = lambda x, shape, scale: pdf(x, shape, loc=self.dmin, scale=scale)
             popt, pcov = so.curve_fit(f, self.sections_c, self.probs, p0=[1.2, 1])
             # print "popt:", popt
-            shape = popt[0]
-            scale = popt[1]
+            shape, scale = popt[:2]
+            # scale = popt[1]
             self.distfit = self.distfunc(shape, loc=self.dmin, scale=scale)
             cdf = self.distfunc.cdf(self.dmax, shape, loc=self.dmin, scale=scale)
         elif len(distshapes.split()) == 2:
-            f = lambda x, shape1, shape2, scale: pdf(x, shape1, shape2, loc=self.dmin, scale=scale)
-            popt, pcov = so.curve_fit(f, self.sections_c, self.probs, p0=[1.2, 1.2, 1]) 
+            f = lambda x, shape1, shape2, scale: pdf(x, shape1, shape2,
+                                                     loc=self.dmin, scale=scale)
+            popt, pcov = so.curve_fit(f, self.sections_c, self.probs, 
+                                      p0=[1.2, 1.2, 1]) 
             # print "popt:", popt
-            shapes = popt[:2]
-            scale = popt[2]
-            self.distfit = self.distfunc(shapes[0], shapes[1], loc=self.dmin, scale=scale)
-            cdf = self.distfunc.cdf(self.dmax, shapes[0], shapes[1], loc=self.dmin, scale=scale)
+            shapes, scale = popt[:2], popt[2]
+            # scale = popt[2]
+            self.distfit = self.distfunc(shapes[0], shapes[1],
+                                         loc=self.dmin, scale=scale)
+            cdf = self.distfunc.cdf(self.dmax, shapes[0], shapes[1], 
+                                    loc=self.dmin, scale=scale)
         else:
-            raise ValueError("specified distribution currently is not supported")
-        print "cdf(dmax):", cdf
-
-    def _check_histogram(self):
-        pdf_sum = sum(d*w for d, w in zip(self.probs, self.widths))
-        print "pdf_sum:", pdf_sum
+            raise ValueError("""specified distribution 
+                                currently is not supported""")
+        return cdf
 
     def get_rvs(self, size=100):
         rvs = self.distfit.rvs(size=size)
@@ -117,7 +124,8 @@ def plot_param_distributions(distlist, xlabels, npoints=1000):
         ax.hist(rvs, bins=bounds, normed=1, color='slategray', lw=0, zorder=0)
         ppx = np.linspace(0, dist.dmax, npoints)
         ppy = dist.distfit.pdf(ppx)
-        ax.bar(dist.bounds, dist.probs, dist.widths[0], color='lightsteelblue', alpha=0.6, zorder=1)
+        ax.bar(dist.bounds, dist.probs, dist.widths[0], 
+               color='lightsteelblue', alpha=0.6, zorder=1)
         distcolor = 'cornflowerblue' # 'limegreen'
         ax.plot(ppx, ppy, color=distcolor, ls='-', lw=2, zorder=3)
         # ax.fill_between(ppx, 0, ppy, facecolor=distcolor, zorder=2, alpha=0.3)
@@ -126,15 +134,15 @@ def plot_param_distributions(distlist, xlabels, npoints=1000):
         ax.set_xlim(0, dist.dmax)
     plt.show()
 
-def get_param_distributions(data, names, statdists):
-    contdists = [ContinuousDistribution(data[[name]].as_matrix().ravel(), dist)
-                 for name, dist in zip(names, statdists)]
+def get_param_distributions(data, names, statdists, verbose=False):
+    contdists = [ContinuousDistribution(data[[name]].as_matrix().ravel(), 
+                 dist, verbose=verbose) for name, dist in zip(names, statdists)]
     return contdists
 
-def get_param_bounds(haz, nohaz, names):
-    data_full = pd.concat([haz[names], nohaz[names]])
-    maxvals = [np.max(data_full[name]) for name in names]
-    minvals = [np.min(data_full[name]) for name in names]
+def get_param_bounds(data, names):
+    # data_full = pd.concat([haz[names], nohaz[names]])
+    maxvals = [np.max(data[name]) for name in names]
+    minvals = [np.min(data[name]) for name in names]
     params = ({name:(minval, maxval) 
               for name, minval, maxval in zip(names, minvals, maxvals)})
     # print "params.items():", params.items()
@@ -172,9 +180,10 @@ if __name__ == '__main__':
 
     haz = rdb.loadObject('./asteroid_data/haz_test.p')
     nohaz = rdb.loadObject('./asteroid_data/nohaz_test.p')
-
+    
     names = ['a', 'i', 'w', 'om', 'q', 'n', 'ma', 'epoch']
-    params = get_param_bounds(haz, nohaz, names)
+    data_full = pd.concat([haz[names], nohaz[names]])
+    params = get_param_bounds(data_full, names)
     rdb.dumpObject(params, './asteroid_data/orbparams_minmax.p')
     gen_rand_params(params=params)
     
@@ -183,7 +192,7 @@ if __name__ == '__main__':
     names = ['a', 'i', 'w', 'om', 'q']
     statdists = [ss.chi, ss.gamma, ss.uniform, ss.uniform, ss.beta, ss.uniform, ss.beta]
     data_full = pd.concat([haz[names], nohaz[names]])
-    distlist = get_param_distributions(data_full, names, statdists)
+    distlist = get_param_distributions(data_full, names, statdists, verbose=True)
     randdata = gen_rand_orbits(params, names, distlist, num=100)
     print "orbit generation finished."
     print "randdata sample:\n", randdata[:5]
