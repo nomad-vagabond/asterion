@@ -72,8 +72,11 @@ def dumpObject(obj, fname):
     pickle.dump(obj, obj_file)
     obj_file.close()
 
-def cut_magnitude(database):
-    cut_h = database[database.H < 22.0]
+def cut_magnitude(database, target='under', threshold=22.0):
+    if target == 'under':
+        cut_h = database[database.H < threshold]
+    else:
+        cut_h = database[database.H >= threshold]
     return cut_h
 
 def get_neo(database, subset):
@@ -193,11 +196,12 @@ if __name__ == '__main__':
     #                        18,19,32,33,34,35,36,37,43,44,45,46,47,48,49])
     columns = ['a', 'e', 'i', 'w', 'om', 'q', 'H', 'neo', 
                'pha', 'moid', 'per', 'n', 'ma', 'epoch']
-    database = read_csv(database_path, sep=',', usecols=columns,
-                        low_memory=False, jobtime=True)
+    database = load_database(columns, jobtime=True)
+    # database = read_csv(database_path, sep=',', usecols=columns,
+    #                     low_memory=False, jobtime=True)
 
-    db_head = database[:10]
-    print "db_head:\n", db_head
+    # db_head = database[:10]
+    print "db_head:\n", database.head(n=5)
 
     ### EXTRACT NEOS ###
     neo, num_neo = get_neo(database, columns)
@@ -233,12 +237,13 @@ if __name__ == '__main__':
     # neos, num_neos = cutoff_outcasts(neo)
 
     ### REMOVE DIM ASTEROIDS ###
-    bright = cut_magnitude(apollos)
-    # bright = cut_magnitude(neos)
+    # bright = cut_magnitude(apollos)
+    bright = cut_magnitude(apollos, target='above')
 
     ### SPLIT ASTEROIDS INTO BY PHA FLAG ###
     # haz, nohaz = get_hazMOID(apollos_cuti)
     haz, nohaz = get_haz(bright)
+    # haz, nohaz = get_hazMOID(apollos)
 
     dumpObject(haz, './asteroid_data/haz_test.p')
     dumpObject(nohaz, './asteroid_data/nohaz_test.p')
