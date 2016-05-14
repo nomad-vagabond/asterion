@@ -1,6 +1,8 @@
 import pickle
 import time
+import string
 from math import pi, sqrt, sin, copysign
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -10,7 +12,7 @@ import scipy.integrate as si
 # from scipy.stats.kde import gaussian_kde
 import matplotlib.pyplot as plt
 # import scipy
-from functools import partial
+
 import read_database as rdb
 
 ### ======================= ###
@@ -162,14 +164,14 @@ class FitDist(object):
     def __init__(self, data, distfunc, n=50, verbose=False):
         self.distfunc = distfunc
         self.dmin, self.dmax = min(data), max(data)
-        pdf_sum = self.get_histogram(data, n)
-        cdf_max = self.get_distribution(data)
+        pdf_sum = self._split(data, n)
+        cdf_max = self._fit()
         if verbose:
             print "Data cdf(xmax): %f \t" % pdf_sum, 
             print "%s_cdf(xmax): %f" % (distfunc.name, cdf_max) 
-        # return self.distfit
 
-    def get_histogram(self, data, num):
+    def _split(self, data, num):
+        """Split data values into bands"""
         bounds = np.linspace(0, self.dmax, num)
         sections = zip(bounds[:-1], bounds[1:])
         self.probs = np.histogram(data, bins=bounds, density=True)[0]
@@ -178,54 +180,46 @@ class FitDist(object):
         # self.bounds = bounds[:-1]
         self.bounds = bounds
         pdf_sum = sum(d*w for d, w in zip(self.probs, self.widths))
-        # self._check_histogram()
-        # print "widths:", widths
         return pdf_sum
 
-    def get_distribution(self, data, num=50):
+    def _fgen(self, shapes, pdf):
+        """Generate function for curve fitting"""
+        if shapes is None:
+            shapes = ''
+        else:
+            shapes += ','
+        # shapes = string.join('shape%d, ' %d for d in range(n_shapes))
+        fdef = ("f = lambda x, %sloc, scale:"
+             "pdf(x, %sloc=loc, scale=scale)" % (shapes, shapes))
+        exec fdef in locals()
+        return f
+
+    def _fit(self):
+        """Fit value bands with continuous distribution"""
         pdf = self.distfunc.pdf
         distshapes = self.distfunc.shapes
-        if distshapes is None:
-            # f = lambda x, scale: pdf(x, loc=self.dmin, scale=scale)
+
+        # if distshapes is None:
+        #     f = lambda x, loc, scale: pdf(x, loc=loc, scale=scale)
+        # else:
+
+        # n = len(distshapes.split())
+        f = self._fgen(distshapes, pdf)
+
+        if self.distfunc.name == 'uniform':
             self.distfit = self.distfunc(loc=self.dmin, scale=self.dmax)
             cdf = self.distfunc.cdf(self.dmax)
-        elif len(distshapes.split()) == 1:
-            # f = lambda x, shape, scale: pdf(x, shape, loc=self.dmin, scale=scale)
-            f = lambda x, shape, loc, scale: pdf(x, shape, loc=loc, scale=scale)
-            popt, pcov = so.curve_fit(f, self.sections_c, self.probs) # p0=[1.2, 1]
-            # print "popt:", popt
-            shape, loc, scale = popt[:3]
-            # scale = popt[1]
-            # self.distfit = self.distfunc(shape, loc=self.dmin, scale=scale)
-            # cdf = self.distfunc.cdf(self.dmax, shape, loc=self.dmin, scale=scale)
-            self.distfit = self.distfunc(shape, loc=loc, scale=scale)
-            cdf = self.distfunc.cdf(self.dmax, shape, loc=loc, scale=scale)
-        elif len(distshapes.split()) == 2:
-            # f = lambda x, shape1, shape2, scale: pdf(x, shape1, shape2,
-            #                                          loc=self.dmin, scale=scale)
-            f = lambda x, shape1, shape2, loc, scale: pdf(x, shape1, shape2,
-                                                     loc=loc, scale=scale)
-            # f = partial(pdf, loc=self.dmin)
-            popt, pcov = so.curve_fit(f, self.sections_c, self.probs)  # p0=[1.2, 1.2, 1]
-            # print "popt:", popt
-            # print "DOUBLE"
-            shapes, loc, scale = popt[:2], popt[2], popt[3]
-            # scale = popt[2]
-            # self.distfit = self.distfunc(shapes[0], shapes[1],
-            #                              loc=self.dmin, scale=scale)
-            # cdf = self.distfunc.cdf(self.dmax, shapes[0], shapes[1], 
-            #                         loc=self.dmin, scale=scale)
-            self.distfit = self.distfunc(shapes[0], shapes[1],
-                                         loc=loc, scale=scale)
-            cdf = self.distfunc.cdf(self.dmax, shapes[0], shapes[1], 
-                                    loc=loc, scale=scale)
-        
         else:
-            raise ValueError("""specified distribution 
-                                currently is not supported""")
+            popt, pcov = so.curve_fit(f, self.sections_c, self.probs)
+            shapes = popt[:-2]
+            self.distfit = self.distfunc(*shapes, loc=popt[-2], scale=popt[-1])
+            cdf = self.distfunc.cdf(self.dmax, *shapes, 
+                                    loc=popt[-2], scale=popt[-1])
+
         return cdf
 
     def get_rvs(self, size=100):
+        """Returns random variables using fitted continuous distribution"""
         rvs = self.distfit.rvs(size=size)
         # print "rvs:", rvs
         return rvs
