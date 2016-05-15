@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 # from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.colors as colors
+import matplotlib.cm as cmx
 
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier
 from sklearn import svm
@@ -12,6 +14,9 @@ from sklearn import cross_validation
 from sklearn.grid_search import GridSearchCV
 from sklearn import cluster
 from sklearn.neighbors.nearest_centroid import NearestCentroid
+from sklearn.gaussian_process import GaussianProcess
+from sklearn import mixture
+from sklearn.cluster import DBSCAN
 
 # import scipy.optimize as so
 # from draw_ellipse_3d import OrbitDisplayGL
@@ -21,6 +26,19 @@ import visualize_data as vd
 from learn_data import get_learndata, prepare_data
 from read_database import loadObject, dumpObject
 
+
+
+
+def get_cmap(n):
+    color_norm  = colors.Normalize(vmin=0, vmax=n-1)
+    scalar_map = cmx.ScalarMappable(norm=color_norm, cmap='hsv') 
+    colors_list = [scalar_map.to_rgba(index) for index in range(n)]
+    return colors_list
+
+
+
+# cc = get_cmap(10)
+# print "cc:", cc
 
 
 # def split_by_lastcol(dataset):
@@ -135,6 +153,31 @@ def crossval_svc_predict(xdata, ydata):
 #     predict_accuracy = 1 - float(len(predict) - num_predict_match)/len(predict)
 #     print "predict_accuracy:", predict_accuracy
 
+def make_clusters(data_x):
+
+    dbsc = DBSCAN(eps = 0.22, min_samples = 20).fit(data_x)
+    labels = dbsc.labels_
+    unique_labels = np.unique(labels)
+    core_samples = np.zeros_like(labels, dtype = bool)
+    core_samples[dbsc.core_sample_indices_] = True
+    print "core_samples:", core_samples[:50]
+    # colors = ['yellow', 'red', 'green', 'blue', 'magenta']
+    colors_ = get_cmap(10)
+    # print "labels:", labels, len(labels)
+    print "unique_labels:", unique_labels
+    print "data_x:", len(data_x)
+
+    for (label, color) in zip(unique_labels, colors_):
+        class_member_mask = (labels == label)
+        xy = data_x[class_member_mask & core_samples]
+        plt.plot(xy[:,0],xy[:,1], 'o', markerfacecolor = color, markersize = 10)
+        
+        xy2 = data_x[class_member_mask & ~core_samples]
+        plt.plot(xy2[:,0],xy2[:,1], 'o', markerfacecolor = color, markersize = 5)
+    plt.show()
+
+
+
 
 
 if __name__ == '__main__':
@@ -160,6 +203,19 @@ if __name__ == '__main__':
     # print "xdata_test:", len(xdata_test), xdata_test.shape
     # print "ydata_test:", len(ydata_test), ydata_test.shape
 
+
+
+    # make_clusters(dataset_haz_gen)
+
+
+
+
+
+
+
+
+
+
     # clf = KNeighborsClassifier(weights='distance', algorithm='auto', n_neighbors=3)
     # clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth=3),
     #                          algorithm="SAMME",
@@ -167,17 +223,22 @@ if __name__ == '__main__':
 
     # clf = AdaBoostClassifier(n_estimators=300)
 
+
+    # clf = GaussianProcess(theta0=5e-1)
+
+
+
     # clf = GradientBoostingClassifier(n_estimators=500, learning_rate=0.9, 
-    #min_samples_split=4, min_samples_leaf=8)
+    # min_samples_split=4, min_samples_leaf=8)
     # cw = {0:1, 1:5}
     # clf = svm.SVC(C=100, gamma=100, tol=0.1, kernel='rbf', class_weight=cw, shrinking=False)
-    clf = RandomForestClassifier(class_weight="balanced", max_leaf_nodes=500, 
-                                 n_estimators=50, criterion='entropy') # class_weight="balanced"
-    # clf = RandomForestClassifier(class_weight="balanced_subsample", 
-    # max_leaf_nodes=800, n_estimators=300, criterion='entropy', max_features="auto") # class_weight="balanced"
+    # clf = RandomForestClassifier(class_weight="balanced", max_leaf_nodes=500, 
+    #                              n_estimators=50, criterion='entropy') # class_weight="balanced"
+    clf = RandomForestClassifier(class_weight="balanced_subsample", 
+    max_leaf_nodes=800, n_estimators=300, criterion='entropy', max_features="auto") # class_weight="balanced"
     # clf = DecisionTreeClassifier()
     # clf = RadiusNeighborsClassifier() # weights='distance
-    # clf = KNeighborsClassifier(algorithm='ball_tree', n_neighbors=10, weights='distance', leaf_size=200)
+    # clf = KNeighborsClassifier(n_neighbors=10, weights='distance') # weights='distance' algorithm='ball_tree', leaf_size=200
 
     # C_coefs = [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30]
     # sigma_coefs = [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30]
@@ -192,6 +253,9 @@ if __name__ == '__main__':
 
     vd.plot_classifier(xdata_train, clf, num=5e2, haz=dataset_haz_real, nohaz=dataset_nohaz_real,
                        labels=['Perihelion distance (q)', 'Argument of periapsis (w)'])
+
+
+
     # vo.plot_classifier(xdata_train, clf, num=5e2, haz=dataset_haz_gen, nohaz=dataset_nohaz_gen)
     # print "xdata_train:", xdata_train[:5]
     # print "len(xdata_train):", len(xdata_train)

@@ -83,7 +83,7 @@ class HarmonicDistribution(object):
         return cdf_[0]
 
     def rvs(self, size=None, resolution=30):
-        size_cut = 2
+        size_cut = int(size*0.02)
         x = np.linspace(self.dmin, self.dmax, resolution)
         w = x[1] - x[0]
         p0 = self._pdf(x[:-1] + w*0.5, self.amp, self.loc, self.scale)*w
@@ -338,7 +338,7 @@ if __name__ == '__main__':
     # ss.uniform, ss.beta
     data_full = pd.concat([haz[names], nohaz[names]])
     distlist = get_param_distributions(data_full, names, statdists, n=30, verbose=True)
-    randdata = gen_rand_orbits(params, names, distlist, num=100)
+    randdata = gen_rand_orbits(params, names, distlist, num=1e5)
     print "orbit generation finished."
     print "randdata sample:\n", randdata[:5]
     plot_param_distributions(distlist, names)

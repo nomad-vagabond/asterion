@@ -5,10 +5,16 @@ import read_database as rdb
 # from functools import partial
 import pickle 
 
-sources = ['./asteroid_data/haz_rand_1e5.p', 
-           './asteroid_data/nohaz_rand_1e5.p',
-           './asteroid_data/haz.p', 
-           './asteroid_data/nohaz.p']
+# sources = ['./asteroid_data/haz_rand_1e5.p', 
+#            './asteroid_data/nohaz_rand_1e5.p',
+#            './asteroid_data/haz.p', 
+#            './asteroid_data/nohaz.p']
+
+sources = ['./asteroid_data/haz_rand_test.p', 
+           './asteroid_data/nohaz_rand_test.p',
+           './asteroid_data/haz_test.p', 
+           './asteroid_data/nohaz_test.p']
+
 
 # sources = ['./asteroid_data/haz_rand_test.p', 
 #            './asteroid_data/nohaz_rand_test.p']
@@ -42,11 +48,12 @@ def get_wir_points(data):
         r = get_r(a, e, w)
         rcol.append(r)
 
-def prepare_data(cutcol=['a', 'e']):
+def prepare_data(cutcol=['a', 'e'], datasets=None):
     print "prepare..."
-    loads = map(rdb.loadObject, sources)
+    if datasets is None:
+        datasets = map(rdb.loadObject, sources)
     data_arr = []
-    for pha, dataset in zip([1,0,1,0],loads):
+    for pha, dataset in zip([1,0,1,0], datasets):
         cutdata = dataset[cutcol]
         arr = cutdata.as_matrix()
         phacol = np.array([[pha]*len(arr)]).T
