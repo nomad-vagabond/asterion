@@ -5,7 +5,8 @@ from mpl_toolkits.mplot3d import Axes3D
 # from learn_data import loadObject
 
 
-def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None):
+def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None, figsize=(10,10)):
+    fig = plt.figure(figsize=figsize)
     xmin, xmax = np.min(data[:,0]), np.max(data[:,0])
     ymin, ymax = np.min(data[:,1]), np.max(data[:,1])
     hx = float(xmax - xmin)/num
@@ -34,7 +35,9 @@ def plot_distribution3d(haz, nohaz):
     ax.set_zlabel('Z Label')
     plt.show()
 
-def plot_distribution(haz=None, nohaz=None, show=True, labels=None):
+def plot_distribution(haz=None, nohaz=None, show=True, labels=None, figsize=(10,10)):
+    if show:
+        fig = plt.figure(figsize=figsize)
     # xmin, xmax = None, None
     # ymin, ymax = None, None
     xlim = []
@@ -59,8 +62,8 @@ def plot_distribution(haz=None, nohaz=None, show=True, labels=None):
         # ymin_haz, ymax_haz = min(haz[..., 1]), max(haz[..., 1])
     
     if labels is not None:
-        plt.ylabel(labels[0])
-        plt.xlabel(labels[1])
+        plt.ylabel(labels[1])
+        plt.xlabel(labels[0])
     
     if len(xlim) >= 2:
         plt.xlim([min(xlim), max(xlim)])
