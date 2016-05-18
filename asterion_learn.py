@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 # from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.colors as colors
-import matplotlib.cm as cmx
+# import matplotlib.colors as colors
+# import matplotlib.cm as cmx
 
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier, NearestNeighbors
 # from sklearn import svm
@@ -26,11 +26,11 @@ from learn_data import get_learndata, prepare_data, split_by_lastcol
 from read_database import loadObject, dumpObject
 
 
-def get_cmap(n):
-    color_norm  = colors.Normalize(vmin=0, vmax=n-1)
-    scalar_map = cmx.ScalarMappable(norm=color_norm, cmap='hsv') 
-    colors_list = [scalar_map.to_rgba(index) for index in range(n)]
-    return colors_list
+# def get_cmap(n):
+#     color_norm  = colors.Normalize(vmin=0, vmax=n-1)
+#     scalar_map = cm.ScalarMappable(norm=color_norm, cmap='hsv') 
+#     colors_list = [scalar_map.to_rgba(index) for index in range(n)]
+#     return colors_list
 
 def classify_knn(datasets, n_neighbors=500, crossval=False, plotclf=True,
                  figsize=(10, 10)):
@@ -72,7 +72,7 @@ def fit_predict(xtrain, ytrain, xtest, ytest, clf):
     print "predict_haz_fraction:", predict_haz_fraction
     print "true_haz_fraction:", true_haz_fraction
 
-def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=True, 
+def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False, 
                      figsize=(10, 10)):
     data_x_norm = normalize_dataset(data_x, copy=True)
     dbsc = DBSCAN(eps=eps, min_samples=min_samples).fit(data_x_norm)  # 0.015  100  | 0.021  160
@@ -85,7 +85,7 @@ def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=True,
     print "n_clusters_:", n_clusters_
     # print "core_samples:", core_samples[:50]
     # colors = ['yellow', 'red', 'green', 'blue', 'magenta']
-    colors_ = get_cmap(len(unique_labels))
+    colors_ = vd.get_colorlist(len(unique_labels))
     # print "labels:", labels, len(labels)
     print "unique_labels:", unique_labels
 
@@ -142,7 +142,6 @@ def multiclass_knn(data, haz_test, nohaz_test, dens_layers):
     data_ = data
     # labels = (-1)*np.ones(len(data))
     merged_clusters = []
-
     for class_id, (eps, min_samples) in enumerate(dens_layers):
         densclust = density_clusters(data_, eps=eps, min_samples=min_samples)
         merged, data_ = merge_clusters(data_, densclust.labels_, class_id)
@@ -150,9 +149,10 @@ def multiclass_knn(data, haz_test, nohaz_test, dens_layers):
 
     merged, data_ = merge_clusters(data_, densclust.labels_, class_id+1, tail=True)
     merged_clusters.append(merged)
+    vd.plot_densclusters(merged_clusters)
     merged_p = np.random.permutation(np.concatenate(tuple(merged_clusters)))
 
-    clf = KNeighborsClassifier(n_neighbors=10)
+    clf = KNeighborsClassifier(n_neighbors=900)
     merged_px, merged_py = split_by_lastcol(merged_p)
     fitter = clf.fit(merged_px, merged_py)
 
@@ -171,7 +171,7 @@ def multiclass_knn(data, haz_test, nohaz_test, dens_layers):
                 for haz, nohaz in zip(classnum_haz, classnum_nohaz)])
     print "haz_prob:", haz_prob
 
-    vd.plot_classifier(merged_px, clf, num=300)
+    vd.plot_classifier(merged_px, clf, num=100, haz=haz_test, nohaz=nohaz_test, clustprobs=haz_prob)
     return haz_prob
 
 
@@ -179,27 +179,30 @@ def multiclass_knn(data, haz_test, nohaz_test, dens_layers):
 if __name__ == '__main__':
 
     ### LOAD DATASETS ###
-    datasets = prepare_data(cutcol=['q', 'w'])
+    datasets = prepare_data(cutcol=['w', 'q'])
     # xdata_train, ydata_train, xdata_test, ydata_test = get_learndata(datasets)
 
     ### DISPLAY PARAMETERS DISTRIBUTION ###
     datasets_x = [datasets[i][:, :-1] for i in range(4)]
     haz_gen, nohaz_gen, haz_real, nohaz_real = datasets_x
-    vd.plot_distribution(haz=haz_gen, nohaz=nohaz_gen, 
-                         labels=['Perihelion distance (q)', 
-                         'Argument of periapsis (w)'])
+    # vd.plot_distribution(haz=haz_gen, nohaz=nohaz_gen, 
+    #                      labels=['Perihelion distance (q)', 
+    #                      'Argument of periapsis (w)'])
 
     ### NORMALIZE DATASET'S DIMENSIONS ###
     # haz_gen_norm = normalize_dataset(haz_gen, copy=True)
     # print "dataset_haz_gen_norm:", dataset_haz_gen_norm[:10]
 
     ## CLASSIFY DATA WITH KNN ###
-    classify_knn(datasets, n_neighbors=500, crossval=True)
+    # classify_knn(datasets, n_neighbors=500, crossval=True)
 
     ## CLASSIFY DATA WITH KNN USING DENSITY CLUSTERING ###
     map(normalize_dataset, [haz_gen, haz_real, nohaz_real])
     eps = [0.0188, 0.02, 0.027, 0.04]
     min_samples = [275, 220, 140, 100]
+
+    # eps = [0.005, 0.0055, 0.008, 0.012]
+    # min_samples = [200, 180, 160, 100]
     dens_layers = zip(eps, min_samples)
     multiclass_knn(haz_gen, haz_real, nohaz_real, dens_layers)
 
