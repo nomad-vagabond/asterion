@@ -17,12 +17,13 @@ def get_colorlist(n, cmap='winter_r'):
 
 
 
-def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None,
-                    clustprobs=None, scales=[(0,360), (0, 1)], figsize=(10,10)):
+def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None, 
+                    clustprobs=None, scales=[(0,1), (0,1)], figsize=(10,10),
+                    cmap='winter_r'):
     fig = plt.figure(figsize=figsize)
     if clustprobs is not None:
-        ax = fig.add_axes([0.05, 0.05, 0.8, 0.9])
-        cbax = fig.add_axes([0.9, 0.2, 0.04, 0.6])
+        ax = fig.add_axes([0.09, 0.05, 0.8, 0.9])
+        cbax = fig.add_axes([0.9, 0.25, 0.03, 0.5])
     else:
         ax = fig.add_subplot(111)
 
@@ -35,12 +36,23 @@ def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None,
 
     z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
     zz = z.reshape(xx.shape)
-    ax.contourf(xx, yy, zz, cmap='winter_r') # alpha=0.8  plt.cm.winter_r
+    # levels = np.arange(len(np.unique(z)))
+    # levels = np.linspace(1., 2., len(np.unique(z)))
+    ax.contourf(xx, yy, zz, cmap=cmap) # alpha=0.8  plt.cm.winter_r
+    # ax.imshow(zz,interpolation='gaussian')
+    # print "xx:", xx.shape
+    # print "yy:", yy.shape
+    # print "zz:", zz.shape
+    # data = scipy.ndimage.zoom(data, 3)
+    # ax.contour(xx, yy, zz, 2, lw=2, colors='k')
+    # ax.imshow(zz, interpolation='bilinear', origin='lower', cmap='winter_r')
     if clustprobs is not None:
-        add_colorbar(cbax, len(np.unique(z)), 'winter', 'Mass fraction of hazardous asteroids', values=clustprobs)
+        probs = ["%.2f" % cp for cp in clustprobs]
+        add_colorbar(cbax, len(np.unique(z)), 'winter', 'Mass fraction of hazardous asteroids', values=probs)
     rescale_axes(ax, scales)
-
+    
     plot_distribution(ax=ax, haz=haz, nohaz=nohaz, labels=labels)
+    # ax.invert_yaxis()
     plt.show()
 
     # randdata = np.array([np.random.uniform(low=xmin, high=xmax, size=num),
@@ -73,13 +85,17 @@ def plot_distribution3d(haz, nohaz):
     plt.show()
 
 
-def plot_densclusters(datasets, labels=None, scales=[(0,360), (0, 1)], figsize=(10,10)):
+def plot_densclusters(datasets, labels=None, scales=[(0, 1), (0, 1)], figsize=(10,10)):
     # fig, ax = plt.subplots(figsize=figsize)
     fig = plt.figure(figsize=figsize)
+    bgcolor = (0.05, 0.06, 0.14)
+    # bgcolor = "navy"
+    # fig.patch.set_facecolor(bgcolor)
+    
     # ax = fig.add_subplot(111)
-    ax = fig.add_axes([0.05, 0.05, 0.8, 0.9])
-
-    cbax = fig.add_axes([0.9, 0.2, 0.04, 0.6])
+    ax = fig.add_axes([0.09, 0.05, 0.8, 0.9])
+    ax.set_axis_bgcolor(bgcolor)
+    cbax = fig.add_axes([0.9, 0.25, 0.03, 0.5])
     colors = get_colorlist(len(datasets))
     xlim = []
     ylim = []
@@ -89,6 +105,12 @@ def plot_densclusters(datasets, labels=None, scales=[(0,360), (0, 1)], figsize=(
         xlim.append(max(dataset[..., 0]))
         ylim.append(min(dataset[..., 1]))
         ylim.append(max(dataset[..., 1]))
+        # print "dataset:", dataset.shape
+    
+    # data_concat = np.concatenate(tuple(datasets))
+    # xx, yy = np.meshgrid(data_concat[:, 0], data_concat[:, 1])
+    # zz, ff = np.meshgrid(data_concat[:, -1], data_concat[:, 0])
+    # ax.contour(xx, yy, zz, lw=2, colors='k')
     
     ax.set_xlim([min(xlim), max(xlim)])
     ax.set_ylim([min(ylim), max(ylim)])
@@ -96,8 +118,11 @@ def plot_densclusters(datasets, labels=None, scales=[(0,360), (0, 1)], figsize=(
         ax.set_ylabel(labels[1])
         ax.set_xlabel(labels[0])
 
+    
+
     add_colorbar(cbax, len(datasets), 'winter', 'DB cluster ID')
     rescale_axes(ax, scales)
+    ax.invert_yaxis()
     plt.show()
 
 
@@ -106,15 +131,15 @@ def rescale_axes(ax, scales):
 
     xscale, yscale = scales
     if xscale is not None:
-        ax.set_xticks([x/8.0 for x in range(9)])
+        # ax.set_xticks([x/8.0 for x in range(9)])
         xlabels = ax.get_xticks().tolist()
         xlabels_ = [(val-xscale[0])*(xscale[1] - xscale[0]) for val in xlabels]
-        ax.set_xticklabels(xlabels_)
+        ax.set_xticklabels(["%.2f" %f for f in xlabels_])
     if yscale is not None:
-        ax.set_yticks([y/8.0 for y in range(9)])
+        # ax.set_yticks([y/8.0 for y in range(9)])
         ylabels = ax.get_yticks().tolist()
         ylabels_ = [(val-yscale[0])*(yscale[1] - yscale[0]) for val in ylabels]
-        ax.set_yticklabels(ylabels_)
+        ax.set_yticklabels(["%.2f" %f for f in ylabels_])
 
     
 
@@ -125,13 +150,19 @@ def plot_distribution(ax=None, haz=None, nohaz=None, show=True, labels=None, fig
     if ax is None:
         fig = plt.figure(figsize=figsize)
         ax = fig.add_subplot(111)
+        alpha = 0.5
+        s = 4
+    else:
+        alpha = 1
+        s = 5
     # xmin, xmax = None, None
     # ymin, ymax = None, None
+    # rescale_axes(ax, scales)
     xlim = []
     ylim = []
 
     if nohaz is not None:
-        ax.scatter(nohaz[..., 0], nohaz[..., 1], s=3, c="blue", lw=0, alpha=0.5) # , alpha=0.5
+        ax.scatter(nohaz[..., 0], nohaz[..., 1], s=s, c="darkblue", lw=0, alpha=alpha) # , alpha=0.5
         xlim.append(min(nohaz[..., 0]))
         xlim.append(max(nohaz[..., 0]))
         ylim.append(min(nohaz[..., 1]))
@@ -140,7 +171,7 @@ def plot_distribution(ax=None, haz=None, nohaz=None, show=True, labels=None, fig
         # ymin_nohaz, ymax_nohaz = min(nohaz[..., 1]), max(nohaz[..., 1])
 
     if haz is not None:
-        ax.scatter(haz[..., 0], haz[..., 1], s=3, c="orange", lw=0, alpha=0.5) # , alpha=0.5
+        ax.scatter(haz[..., 0], haz[..., 1], s=s, c="yellow", lw=0, alpha=alpha) # , alpha=0.5
         xlim.append(min(haz[..., 0]))
         xlim.append(max(haz[..., 0]))
         ylim.append(min(haz[..., 1]))
@@ -158,6 +189,7 @@ def plot_distribution(ax=None, haz=None, nohaz=None, show=True, labels=None, fig
         ax.set_ylim([min(ylim), max(ylim)])
     # plt.ylim([min(ymin_haz, ymin_nohaz), max(ymax_haz, ymax_nohaz)])
     # plt.xlim([min(xmin_haz, xmin_nohaz), max(xmax_haz, xmax_nohaz)])
+    ax.invert_yaxis()
     if ax is None:
         plt.show()
 

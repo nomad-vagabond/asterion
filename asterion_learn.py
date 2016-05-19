@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # import matplotlib.cm as cmx
 
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier, NearestNeighbors
-# from sklearn import svm
+from sklearn import svm
 # from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
 # from sklearn.tree import DecisionTreeClassifier
 from sklearn import cross_validation
@@ -32,11 +32,10 @@ from read_database import loadObject, dumpObject
 #     colors_list = [scalar_map.to_rgba(index) for index in range(n)]
 #     return colors_list
 
-def classify_knn(datasets, n_neighbors=500, crossval=False, plotclf=True,
-                 figsize=(10, 10)):
+def classify_hazardous(datasets, clf, crossval=False):
     xtrain, ytrain, xtest, ytest = get_learndata(datasets)
-    map(normalize_dataset, [xtrain, xtest])
-    clf = KNeighborsClassifier(n_neighbors=n_neighbors)
+    # map(normalize_dataset, [xtrain, xtest])
+    # clf = KNeighborsClassifier(n_neighbors=n_neighbors)
     print "clf:", clf
     fit_predict(xtrain, ytrain, xtest, ytest, clf)
 
@@ -51,13 +50,13 @@ def classify_knn(datasets, n_neighbors=500, crossval=False, plotclf=True,
             fit_predict(xtrain, ytrain, xtest, ytest, clf)
         print "done."
 
-    if plotclf:
-        haz_real, nohaz_real = map(normalize_dataset, 
-                                   [datasets[i][:, :-1] for i in [2,3]])
-        vd.plot_classifier(xtrain, clf, num=200, haz=haz_real, figsize=figsize,
-                           nohaz=nohaz_real, labels=['Perihelion distance (q)',
-                           'Argument of periapsis (w)'])
-    return clf
+    # if plotclf:
+    #     haz_real, nohaz_real = map(normalize_dataset, 
+    #                                [datasets[i][:, :-1] for i in [2,3]])
+    #     vd.plot_classifier(xtrain, clf, num=200, haz=haz_real, figsize=figsize,
+    #                        nohaz=nohaz_real, labels=['Perihelion distance (q)',
+    #                        'Argument of periapsis (w)'])
+    return xtrain, clf
 
 def fit_predict(xtrain, ytrain, xtest, ytest, clf):
     fitter = clf.fit(xtrain, ytrain)
@@ -82,12 +81,12 @@ def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False,
     core_samples[dbsc.core_sample_indices_] = True
     # Number of clusters in labels, ignoring noise if present.
     n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-    print "n_clusters_:", n_clusters_
+    # print "n_clusters_:", n_clusters_
     # print "core_samples:", core_samples[:50]
     # colors = ['yellow', 'red', 'green', 'blue', 'magenta']
     colors_ = vd.get_colorlist(len(unique_labels))
     # print "labels:", labels, len(labels)
-    print "unique_labels:", unique_labels
+    # print "unique_labels:", unique_labels
 
     if plotclusters:
         fig = plt.figure(figsize=figsize)
@@ -136,10 +135,12 @@ def merge_clusters(data, labels, class_id, tail=False):
     return merged, leftovers
 
     
-def multiclass_knn(data, haz_test, nohaz_test, dens_layers):
+def classify_clusters(data, clf, haz_test, nohaz_test, dens_layers):
     """Classifies data by density cluster IDs and calculates hazardous
        asteroids' mass fraction in clusters."""
     data_ = data
+    # scales = [(min(data[:, 0]), max(data[:, 0])), (min(data[:, 1]), max(data[:, 1]))]
+    # print "scales:", scales
     # labels = (-1)*np.ones(len(data))
     merged_clusters = []
     for class_id, (eps, min_samples) in enumerate(dens_layers):
@@ -149,10 +150,12 @@ def multiclass_knn(data, haz_test, nohaz_test, dens_layers):
 
     merged, data_ = merge_clusters(data_, densclust.labels_, class_id+1, tail=True)
     merged_clusters.append(merged)
-    vd.plot_densclusters(merged_clusters)
+
+    # vd.plot_densclusters(merged_clusters, scales=scales)
     merged_p = np.random.permutation(np.concatenate(tuple(merged_clusters)))
 
-    clf = KNeighborsClassifier(n_neighbors=900)
+    # clf = KNeighborsClassifier(n_neighbors=int(0.01*len(data)))
+    # clf = svm.SVC(C=1, gamma=100.) #kernel='poly'
     merged_px, merged_py = split_by_lastcol(merged_p)
     fitter = clf.fit(merged_px, merged_py)
 
@@ -171,8 +174,9 @@ def multiclass_knn(data, haz_test, nohaz_test, dens_layers):
                 for haz, nohaz in zip(classnum_haz, classnum_nohaz)])
     print "haz_prob:", haz_prob
 
-    vd.plot_classifier(merged_px, clf, num=100, haz=haz_test, nohaz=nohaz_test, clustprobs=haz_prob)
-    return haz_prob
+    # scales = [(min(data[:, 0]), max(data[:, 0])), (min(data[:, 1]), max(data[:, 1]))]
+    # vd.plot_classifier(merged_px, clf, num=200, haz=haz_test, nohaz=nohaz_test, clustprobs=haz_prob, scales=scales)
+    return merged_clusters, merged_px, clf, haz_prob
 
 
 
@@ -180,31 +184,43 @@ if __name__ == '__main__':
 
     ### LOAD DATASETS ###
     datasets = prepare_data(cutcol=['w', 'q'])
+    labels=['Argument of periapsis (w)', 'Perihelion distance (q)']
     # xdata_train, ydata_train, xdata_test, ydata_test = get_learndata(datasets)
 
     ### DISPLAY PARAMETERS DISTRIBUTION ###
     datasets_x = [datasets[i][:, :-1] for i in range(4)]
     haz_gen, nohaz_gen, haz_real, nohaz_real = datasets_x
-    # vd.plot_distribution(haz=haz_gen, nohaz=nohaz_gen, 
-    #                      labels=['Perihelion distance (q)', 
-    #                      'Argument of periapsis (w)'])
+    vd.plot_distribution(haz=haz_gen, nohaz=nohaz_gen, labels=labels)
 
     ### NORMALIZE DATASET'S DIMENSIONS ###
-    # haz_gen_norm = normalize_dataset(haz_gen, copy=True)
-    # print "dataset_haz_gen_norm:", dataset_haz_gen_norm[:10]
+    x, y = haz_gen[:, 0], haz_gen[:, 1]
+    scales = [(x.min(), x.max()),  (y.min(), y.max())]
+    map(normalize_dataset, [haz_gen, nohaz_gen, haz_real, nohaz_real])
 
-    ## CLASSIFY DATA WITH KNN ###
-    # classify_knn(datasets, n_neighbors=500, crossval=True)
 
-    ## CLASSIFY DATA WITH KNN USING DENSITY CLUSTERING ###
-    map(normalize_dataset, [haz_gen, haz_real, nohaz_real])
+    ### CLASSIFY HAZARDOUS AND NONHAZARDOUS ASTEROIDS ###
+    clf = KNeighborsClassifier(n_neighbors=500)
+    xtrain, clf = classify_hazardous(datasets, clf, crossval=False)
+    vd.plot_classifier(xtrain, clf, num=200, haz=haz_real, nohaz=nohaz_real, 
+                       cmap='RdBu', labels=labels, scales=scales)
+
+    ### SPLIT DATA BY DENSITY-BASED CLUSTERS AND ESTIMATE HAZARDOUS ASTEROIDS MASS FRACTION IN CLUSTERS ###
+        
     eps = [0.0188, 0.02, 0.027, 0.04]
     min_samples = [275, 220, 140, 100]
 
     # eps = [0.005, 0.0055, 0.008, 0.012]
     # min_samples = [200, 180, 160, 100]
+
     dens_layers = zip(eps, min_samples)
-    multiclass_knn(haz_gen, haz_real, nohaz_real, dens_layers)
+    # scales = [(0,360), (0,1)]
+    # clf = KNeighborsClassifier(n_neighbors=int(0.01*len(data)))
+    clf = svm.SVC(gamma=100.) #kernel='poly'
+    clusters, xtrain, clf, haz_prob = classify_clusters(haz_gen, clf, haz_real, 
+                                                     nohaz_real, dens_layers)
+    vd.plot_densclusters(clusters, scales=scales, labels=labels)
+    vd.plot_classifier(xtrain, clf, num=200, haz=haz_real, nohaz=nohaz_real,
+                       clustprobs=haz_prob, scales=scales, labels=labels)
 
 
 
