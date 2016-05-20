@@ -206,11 +206,12 @@ if __name__ == '__main__':
 
     ### SPLIT DATA BY DENSITY-BASED CLUSTERS AND ESTIMATE HAZARDOUS ASTEROIDS MASS FRACTION IN CLUSTERS ###
         
-    eps = [0.0188, 0.02, 0.027, 0.04]
-    min_samples = [275, 220, 140, 100]
-
-    # eps = [0.005, 0.0055, 0.008, 0.012]
-    # min_samples = [200, 180, 160, 100]
+    # eps = [0.005, 0.0055, 0.008, 0.012] #1e6
+    # min_samples = [200, 180, 160, 100] #1e6
+    eps = [0.0115, 0.0125, 0.018, 0.023] #2e5
+    min_samples = [200, 160, 150, 100] #2e5
+    # eps = [0.0188, 0.02, 0.027, 0.04] #1e4
+    # min_samples = [275, 220, 140, 100] #1e4
 
     dens_layers = zip(eps, min_samples)
     # scales = [(0,360), (0,1)]

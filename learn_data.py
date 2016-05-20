@@ -10,8 +10,8 @@ import pickle
 #            './asteroid_data/haz.p', 
 #            './asteroid_data/nohaz.p']
 
-sources = ['./asteroid_data/haz_rand_test.p', 
-           './asteroid_data/nohaz_rand_test.p',
+sources = ['./asteroid_data/haz_rand_2e5.p', 
+           './asteroid_data/nohaz_rand_2e5.p',
            './asteroid_data/haz_test.p', 
            './asteroid_data/nohaz_test.p']
 

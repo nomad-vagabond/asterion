@@ -329,7 +329,7 @@ if __name__ == '__main__':
     # gkde = GaussianKDE('gkde', data_full['w'].as_matrix())
     # gkde2 = GaussianKDE('gkde2', data_full['om'].as_matrix())
     # gkde_a = GaussianKDE('gkde_a', data_full['a'].as_matrix())
-    kde_a = GaussianKDE(data_full['a'])
+    # kde_a = GaussianKDE(data_full['a'])
     names = ['a', 'i', 'w', 'om', 'q']
     bimod = BimodalDistribution()  # ss.logistic, ss.logistic
     statdists = [ss.johnsonsb, ss.exponweib, HarmonicDistribution(), HarmonicDistribution(), ss.genlogistic] # ss.exponweib ss.loggamma
@@ -338,7 +338,7 @@ if __name__ == '__main__':
     # ss.uniform, ss.beta
     data_full = pd.concat([haz[names], nohaz[names]])
     distlist = get_param_distributions(data_full, names, statdists, n=30, verbose=True)
-    randdata = gen_rand_orbits(params, names, distlist, num=1e5)
+    randdata = gen_rand_orbits(params, names, distlist, num=2e5)
     print "orbit generation finished."
     print "randdata sample:\n", randdata[:5]
     plot_param_distributions(distlist, names)
@@ -353,8 +353,8 @@ if __name__ == '__main__':
 
     ### DUMP RANDOM ORBITS ###
     haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
-    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_test.p')
-    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_test.p')
+    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_2e5.p')
+    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_2e5.p')
 
 
 
