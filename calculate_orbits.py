@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.linalg import norm
 import scipy.optimize as so
-from math import cos, sin, sqrt, pi
+from math import cos, sin, sqrt, pi, ceil
 # import matplotlib.pyplot as plt
 from visualize_data import plot_orbits2D
 from functools import partial
@@ -62,7 +62,7 @@ def rotate(point, ax, angle):
 
 def rotated_orb_point(a, e, w, i, omega, t):
     inc_point = inclined_orb_point(a, e, w, i, t)
-    angle = omega - w
+    angle = omega + w
     zaxis = np.array([0.0, 0.0, 1.0])
     rotpoint = rotate(inc_point, zaxis, angle)
     return rotpoint
@@ -70,8 +70,9 @@ def rotated_orb_point(a, e, w, i, omega, t):
 def inclined_orb_point(a, e, w, i, t):
     point = get_orb_point(a, e, t)
     r = get_r(a, e, w)
-    axis = np.array([r*cos(w), r*sin(w), 0])
-    axis0 = axis/norm(axis)
+    # axis = np.array([r*cos(w), r*sin(w), 0])
+    # axis0 = axis/norm(axis)
+    axis0 = np.array([cos(w), sin(w), 0])
     rotpoint = rotate(point, axis0, i)
     return rotpoint
 
@@ -143,11 +144,12 @@ def get_moid(a, e, w, i, omega):
 
 def find_center(a, e, w, i, omega):
     c = np.array([-1,0,0])*(a*e)
-    r = get_r(a, e, w)
-    axis = np.array([r*cos(w), r*sin(w), 0])
-    axis0 = axis/norm(axis)
+    # r = get_r(a, e, w)
+    # axis = np.array([r*cos(w), r*sin(w), 0])
+    # axis0 = axis/norm(axis)
+    axis0 = np.array([cos(w), sin(w), 0])
     c_inc = rotate(c, axis0, i)
-    angle = omega - w
+    angle = omega + w
     zaxis = np.array([0.0, 0.0, 1.0])
     c_rot = rotate(c_inc, zaxis, angle)
     return c_rot
@@ -174,15 +176,40 @@ def get_rxrycxcy(a, e, w, i, omega):
 
 def get_points(a, e, w, i, numpoints=100):
     # theta = np.linspace(0, 2*pi, numpoints)
+
+    theta1 = []
+    delta = pi/numpoints
+    t = 0
+    base = 0
+    # add, base = 0
+    for p in range(numpoints+1):
+        angle = abs(base - pi*sin(t)) + base
+        t += delta
+        theta1.append(angle)
+        if p == ceil(numpoints/2):
+            base = pi
+
+    theta1 = np.asarray(theta1)
+    # angles = [pi*p/float(numpoints) for p in range(numpoints)]
+    # theta1 = [2*pi*sin(pi*an/float(numpoints)) for an in range(numpoints)]
+
     logspace_pi = np.logspace(0.01, 1, int(numpoints*0.5))*0.1
     lsp1 = (1 - logspace_pi)
     sp1 = np.sort(pi*(lsp1 - lsp1[0] + 1))
     lsp2 = (logspace_pi-logspace_pi[0])
     sp2 = lsp2*pi/lsp2[-1] + pi
     theta = np.concatenate((sp1,sp2[1:]))
+    print "theta:", theta
+    print "theta1:", theta1
+    print
+
+
+
+
     # dist = [get_r(t) for t in theta]
-    points = np.array([get_orb_point(a, e, t) for t in theta])
+    points = np.array([get_orb_point(a, e, t) for t in theta1])
     return points
+
 
 def get_incpoints(a, e, w, i, points):
     r = get_r(a, e, w)

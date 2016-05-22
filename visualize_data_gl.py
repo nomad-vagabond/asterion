@@ -71,7 +71,7 @@ class OrbitDisplayGL(object):
     def DrawGLScene(self):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         GL.glLoadIdentity()
-        GL.glTranslatef(0.0, 0.0, -25.0)
+        GL.glTranslatef(0.0, 0.0, -10.0)
         GL.glRotatef(self.angleX, 1.0, 0.0, 0.0)
         GL.glRotatef(self.angleY, 0.0, 0.0, 1.0)
         GL.glEnable(GL.GL_ALPHA_TEST)
@@ -163,7 +163,7 @@ class OrbitDisplayGL(object):
         for row in data:
             a, e, i, w, omega = row
             w, i, omega = np.radians([w, i, omega])
-            flat_points = co.get_points(a, e, w, i, numpoints=100)
+            flat_points = co.get_points(a, e, w, i, numpoints=30)
             inc_points = co.get_incpoints(a, e, w, i, flat_points)
             rot_points = co.get_rotpoints(a, e, w, i, omega, inc_points)
             flatorbits.append(flat_points)
@@ -211,8 +211,8 @@ class OrbitDisplayGL(object):
 
 if __name__ == '__main__':
 
-    sources = ['./asteroid_data/haz_rand_test.p',
-               './asteroid_data/nohaz_rand_test.p']
+    sources = ['./asteroid_data/haz_rand_small.p',
+               './asteroid_data/nohaz_rand_small.p']
 
     # sources = ['./asteroid_data/haz.p', './asteroid_data/nohaz.p']
     cutcol = ['a', 'e', 'i', 'w', 'om']

@@ -1,7 +1,8 @@
 import pickle
 import time
 import string
-from math import pi, sqrt, sin, copysign
+# import os
+from math import pi, sqrt, sin, copysign, floor, ceil
 from functools import partial
 
 import numpy as np
@@ -83,18 +84,42 @@ class HarmonicDistribution(object):
         return cdf_[0]
 
     def rvs(self, size=None, resolution=30):
-        size_cut = int(size*0.02)
+        size = int(size)
+        if size < 4:
+            rvs = np.random.uniform(low=self.dmin, high=self.dmax, size=size)
+            return rvs
+        if size < resolution:
+            resolution = int(ceil(size*0.33))
+            # print "resolution:", resolution
+        
         x = np.linspace(self.dmin, self.dmax, resolution)
         w = x[1] - x[0]
         p0 = self._pdf(x[:-1] + w*0.5, self.amp, self.loc, self.scale)*w
-        p = np.asarray(np.round(p0*(size-size_cut)),  dtype=int)
+        # size_cut = max(int(size*0.02), 1)
+        size_cut = 0
+        for iteration in range(size):
+            p = np.asarray(np.round(p0*(size-size_cut)),  dtype=int)
+            psum = np.sum(p)
+            if psum <= size:
+                break
+            else:
+               size_cut += 1 
+        # psum = min(np.sum(p), size)
         # print "p_sum:", np.sum(p)
+        # print "size_cut:", size_cut
+        # print "np.sum(p):", np.sum(p)
         sections = zip(x[:-1], x[1:], p)
+        # print "sections:", sections
         rvs_base = np.asarray([np.random.uniform(low=a, high=b, size=n) 
                                for a, b, n in sections])
         rvs_add = np.random.uniform(low=self.dmin, high=self.dmax, 
-                                    size=(size - np.sum(p)))
+                                    size=(size - psum))
+        # rvs_base = rvs_base.ravel()
+        rvs_base = np.hstack(rvs_base)
+        # print "rvs_base:", rvs_base, rvs_base.shape
+        # print "rvs_add:", rvs_add, rvs_add.shape
         rvs = np.hstack(np.concatenate((rvs_base, rvs_add)))
+        # print "len(rvs):", len(rvs)
         # return np.random.uniform(low=0, high=360, size=size)
         return rvs
 
@@ -161,6 +186,8 @@ class FitDist(object):
               Currently supports continuous random variables with 
               shape parameter.
     """
+    # __module__ = os.path.splitext(os.path.basename(__file__))[0]
+    
     def __init__(self, data, distfunc, n=50, verbose=False):
         self.distfunc = distfunc
         self.dmin, self.dmax = min(data), max(data)
@@ -221,6 +248,14 @@ class FitDist(object):
     def get_rvs(self, size=100):
         """Returns random variables using fitted continuous distribution"""
         rvs = self.distfit.rvs(size=size)
+        where_plusinf = np.where(rvs == np.inf)
+        where_minusinf = np.where(rvs == (-np.inf))
+        rvs[where_plusinf] = self.dmax
+        rvs[where_minusinf] = self.dmin
+
+        # where_plusinf = np.where(rvs == np.inf)
+        # where_minusinf = np.where(rvs == (-np.inf))
+        # print "where_minusinf:", where_minusinf
         # print "rvs:", rvs
         return rvs
 
@@ -287,13 +322,16 @@ def get_param_bounds(data, names):
 
 def gen_rand_params(params=None, distdict=None, num=1):
     if distdict is None:
-        if params is None:
-            params = rdb.loadObject('./asteroid_data/orbparams_minmax.p')
-        rand_params = ({name:np.random.uniform(low=values[0], high=values[1], 
-                        size=num) for name, values in params.items()})
-    else:
-        rand_params = ({name: contdist.get_rvs(size=num)
-                        for name, contdist in distdict.items()})
+        distdict = rdb.loadObject('./asteroid_data/param_dist.p')
+
+    #     if params is None:
+    #         params = rdb.loadObject('./asteroid_data/orbparams_minmax.p')
+    #     rand_params = ({name:np.random.uniform(low=values[0], high=values[1], 
+    #                     size=num) for name, values in params.items()})
+    # else:
+
+    rand_params = ({name: contdist.get_rvs(size=num)
+                    for name, contdist in distdict.items()})
     try:
         rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
         rand_params['per'] = 2*pi*np.sqrt((rand_params['a']*AU)**3/(G*M))/86400.0
@@ -322,7 +360,7 @@ if __name__ == '__main__':
     data_full = pd.concat([haz[names], nohaz[names]])
     params = get_param_bounds(data_full, names)
     rdb.dumpObject(params, './asteroid_data/orbparams_minmax.p')
-    gen_rand_params(params=params)
+    # gen_rand_params(params=params)
     
     print "init orbit generation..."
     # names = ['a', 'e', 'i', 'w', 'om', 'q']
@@ -338,23 +376,30 @@ if __name__ == '__main__':
     # ss.uniform, ss.beta
     data_full = pd.concat([haz[names], nohaz[names]])
     distlist = get_param_distributions(data_full, names, statdists, n=30, verbose=True)
-    randdata = gen_rand_orbits(params, names, distlist, num=2e5)
+
+    randdata = gen_rand_orbits(params, names, distlist, num=5e1)
     print "orbit generation finished."
     print "randdata sample:\n", randdata[:5]
     plot_param_distributions(distlist, names)
     
     ### CALCULATE MOID ###
-    # print "init MOID copmutation..."
-    # t0 = time.time()
-    data = rdb.calc_moid(randdata)
-    # t1 = time.time() - t0
-    # print "MOID copmutation finished in %f seconds." % t1
+    data = rdb.calc_moid(randdata, jobtime=True)
     # haz, nohaz = rdb.get_hazMOID(data)
 
     ### DUMP RANDOM ORBITS ###
     haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
-    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_2e5.p')
-    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_2e5.p')
+    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_small.p')
+    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_small.p')
+
+    ### DUMP PARAMETERS DISTRIBUTIONS ###
+    distdict = {name: dist for name, dist in zip(names, distlist)}
+    rdb.dumpObject(distdict, './asteroid_data/param_dist.p')
+    # rdb.dumpObject(distlist, './asteroid_data/param_distlist.p')
+
+    rand_params = gen_rand_params(num=4)
+    # print "rand_params:", rand_params
+    # for key, value in rand_params.items():
+    #     print "%s\t%d" %(key, len(value))
 
 
 
