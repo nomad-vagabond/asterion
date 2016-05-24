@@ -163,9 +163,9 @@ class OrbitDisplayGL(object):
         for row in data:
             a, e, i, w, omega = row
             w, i, omega = np.radians([w, i, omega])
-            flat_points = co.get_points(a, e, w, i, numpoints=30)
-            inc_points = co.get_incpoints(a, e, w, i, flat_points)
-            rot_points = co.get_rotpoints(a, e, w, i, omega, inc_points)
+            flat_points = co.get_points(a, e, numpoints=30)
+            inc_points = co.get_incpoints(w, i, flat_points)
+            rot_points = co.get_rotpoints(w, i, omega, inc_points)
             flatorbits.append(flat_points)
             incorbits.append(inc_points)
             rotorbits.append(rot_points)

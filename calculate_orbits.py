@@ -24,11 +24,11 @@ def get_earthorb_point(alpha):
     point = np.array([x, y, 0.0])
     # get inclined point
     ax = get_r(a, e, w)
-    axis = np.array([ax*cos(w), ax*sin(w), 0])
+    axis = np.array([ax*cos(-w), ax*sin(-w), 0])
     axis0 = axis/norm(axis)
     incpoint = rotate(point, axis0, i)
     # get rotated around Z point 
-    angle = omega - w
+    angle = omega + w
     zaxis = np.array([0.0, 0.0, 1.0])
     rotpoint = rotate(incpoint, zaxis, angle)
     return rotpoint
@@ -72,7 +72,7 @@ def inclined_orb_point(a, e, w, i, t):
     r = get_r(a, e, w)
     # axis = np.array([r*cos(w), r*sin(w), 0])
     # axis0 = axis/norm(axis)
-    axis0 = np.array([cos(w), sin(w), 0])
+    axis0 = np.array([cos(-w), sin(-w), 0])
     rotpoint = rotate(point, axis0, i)
     return rotpoint
 
@@ -174,10 +174,10 @@ def get_rxrycxcy(a, e, w, i, omega):
 
 ### Find orbit points projections to ecliptics ###
 
-def get_points(a, e, w, i, numpoints=100):
+def get_points(a, e, numpoints=100):
     # theta = np.linspace(0, 2*pi, numpoints)
 
-    theta1 = []
+    theta = []
     delta = pi/numpoints
     t = 0
     base = 0
@@ -185,36 +185,34 @@ def get_points(a, e, w, i, numpoints=100):
     for p in range(numpoints+1):
         angle = abs(base - pi*sin(t)) + base
         t += delta
-        theta1.append(angle)
+        theta.append(angle)
         if p == ceil(numpoints/2):
             base = pi
 
-    theta1 = np.asarray(theta1)
+    theta = np.asarray(theta)
     # angles = [pi*p/float(numpoints) for p in range(numpoints)]
     # theta1 = [2*pi*sin(pi*an/float(numpoints)) for an in range(numpoints)]
 
-    logspace_pi = np.logspace(0.01, 1, int(numpoints*0.5))*0.1
-    lsp1 = (1 - logspace_pi)
-    sp1 = np.sort(pi*(lsp1 - lsp1[0] + 1))
-    lsp2 = (logspace_pi-logspace_pi[0])
-    sp2 = lsp2*pi/lsp2[-1] + pi
-    theta = np.concatenate((sp1,sp2[1:]))
-    print "theta:", theta
-    print "theta1:", theta1
-    print
-
-
-
+    # logspace_pi = np.logspace(0.01, 1, int(numpoints*0.5))*0.1
+    # lsp1 = (1 - logspace_pi)
+    # sp1 = np.sort(pi*(lsp1 - lsp1[0] + 1))
+    # lsp2 = (logspace_pi-logspace_pi[0])
+    # sp2 = lsp2*pi/lsp2[-1] + pi
+    # theta = np.concatenate((sp1,sp2[1:]))
+    # print "theta:", theta
+    # print "theta1:", theta1
+    # print
 
     # dist = [get_r(t) for t in theta]
-    points = np.array([get_orb_point(a, e, t) for t in theta1])
+    points = np.array([get_orb_point(a, e, t) for t in theta])
     return points
 
 
-def get_incpoints(a, e, w, i, points):
-    r = get_r(a, e, w)
-    axis = np.array([r*cos(w), r*sin(w), 0])
-    axis0 = axis/norm(axis)
+def get_incpoints(w, i, points):
+    # r = get_r(a, e, w)
+    # axis = np.array([r*cos(w), r*sin(w), 0])
+    # axis0 = axis/norm(axis)
+    axis0 = np.array([cos(w), sin(w), 0])
     rot = get_rotmatrix(axis0, i)
     inc_points = []
     for point in points:
@@ -222,8 +220,8 @@ def get_incpoints(a, e, w, i, points):
         inc_points.append(inc_point)
     return np.asarray(inc_points)
 
-def get_rotpoints(a, e, w, i, omega, inc_points):
-    angle = omega - w
+def get_rotpoints(w, i, omega, inc_points):
+    angle = omega + w
     zaxis = np.array([0.0, 0.0, 1.0])
     rot = get_rotmatrix(zaxis, angle)
     rot_points = []
@@ -271,9 +269,9 @@ if __name__ == '__main__':
     # print "get_rhor(0.0, a, e, w, i, om):", get_rhor(0.0, a, e, w, i, om)
     # print get_r1(0.186585)
 
-    orb_points = get_points(a, e, w, i)
-    inc_points = get_incpoints(a, e, w, i, orb_points)
-    rot_points = get_rotpoints(a, e, w, i, om, inc_points)
+    orb_points = get_points(a, e)
+    inc_points = get_incpoints(w, i, orb_points)
+    rot_points = get_rotpoints(w, i, om, inc_points)
 
     theta = np.linspace(0, 2*pi, 100)
     earthpoints = np.array([get_earthorb_point(t) for t in theta])

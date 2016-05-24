@@ -377,7 +377,7 @@ if __name__ == '__main__':
     data_full = pd.concat([haz[names], nohaz[names]])
     distlist = get_param_distributions(data_full, names, statdists, n=30, verbose=True)
 
-    randdata = gen_rand_orbits(params, names, distlist, num=5e1)
+    randdata = gen_rand_orbits(params, names, distlist, num=2e5)
     print "orbit generation finished."
     print "randdata sample:\n", randdata[:5]
     plot_param_distributions(distlist, names)
@@ -388,8 +388,8 @@ if __name__ == '__main__':
 
     ### DUMP RANDOM ORBITS ###
     haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
-    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_small.p')
-    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_small.p')
+    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_2e5n.p')
+    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_2e5n.p')
 
     ### DUMP PARAMETERS DISTRIBUTIONS ###
     distdict = {name: dist for name, dist in zip(names, distlist)}
