@@ -83,7 +83,7 @@ class HarmonicDistribution(object):
         # print "cdf_:", cdf_
         return cdf_[0]
 
-    def rvs(self, size=None, resolution=30):
+    def rvs(self, size=None, resolution=60):
         size = int(size)
         if size < 4:
             rvs = np.random.uniform(low=self.dmin, high=self.dmax, size=size)
@@ -240,18 +240,29 @@ class FitDist(object):
             popt, pcov = so.curve_fit(f, self.sections_c, self.probs)
             shapes = popt[:-2]
             self.distfit = self.distfunc(*shapes, loc=popt[-2], scale=popt[-1])
-            cdf = self.distfunc.cdf(self.dmax, *shapes, 
-                                    loc=popt[-2], scale=popt[-1])
+            # cdf = self.distfunc.cdf(self.dmax, *shapes, 
+            #                         loc=popt[-2], scale=popt[-1])
+            cdf = si.quad(self.distfit.pdf, self.dmin, self.dmax)[0]
 
         return cdf
 
     def get_rvs(self, size=100):
         """Returns random variables using fitted continuous distribution"""
         rvs = self.distfit.rvs(size=size)
-        where_plusinf = np.where(rvs == np.inf)
-        where_minusinf = np.where(rvs == (-np.inf))
-        rvs[where_plusinf] = self.dmax
-        rvs[where_minusinf] = self.dmin
+
+        # where_plusinf = np.where(rvs == np.inf)
+        # where_minusinf = np.where(rvs == (-np.inf))
+        # rvs[where_plusinf] = self.dmax
+        # rvs[where_minusinf] = self.dmin
+
+        below_bounds = np.where(rvs < self.dmin)[0]
+        # print "below_bounds:", below_bounds.shape, #type(below_bounds)
+        above_bounds = np.where(rvs > self.dmax)[0]
+        # print "above_bounds:", above_bounds.shape, #type(below_bounds)
+        bad = np.concatenate((below_bounds, above_bounds))
+        rvs_less = np.delete(rvs, bad)
+        rvs_add = np.random.uniform(low=self.dmin, high=self.dmax, size=len(bad))
+        rvs = np.concatenate((rvs_less, rvs_add))
 
         # where_plusinf = np.where(rvs == np.inf)
         # where_minusinf = np.where(rvs == (-np.inf))
@@ -370,14 +381,14 @@ if __name__ == '__main__':
     # kde_a = GaussianKDE(data_full['a'])
     names = ['a', 'i', 'w', 'om', 'q']
     bimod = BimodalDistribution()  # ss.logistic, ss.logistic
-    statdists = [ss.johnsonsb, ss.exponweib, HarmonicDistribution(), HarmonicDistribution(), ss.genlogistic] # ss.exponweib ss.loggamma
+    statdists = [ss.johnsonsb, ss.exponweib, HarmonicDistribution(), HarmonicDistribution(), ss.pearson3] # ss.exponweib ss.loggamma
     # ss.genlogistic ss.exponweib ss.loggamma ss.burr
     # ss.fatiguelife ss.foldnorm ss.genpareto ss.gompertz!!!  ss.johnsonsb!!! ss.pearson3 ss.powerlognorm ss.recipinvgauss
     # ss.uniform, ss.beta
     data_full = pd.concat([haz[names], nohaz[names]])
-    distlist = get_param_distributions(data_full, names, statdists, n=30, verbose=True)
+    distlist = get_param_distributions(data_full, names, statdists, n=25, verbose=True)
 
-    randdata = gen_rand_orbits(params, names, distlist, num=2e5)
+    randdata = gen_rand_orbits(params, names, distlist, num=5e4)
     print "orbit generation finished."
     print "randdata sample:\n", randdata[:5]
     plot_param_distributions(distlist, names)
@@ -388,8 +399,8 @@ if __name__ == '__main__':
 
     ### DUMP RANDOM ORBITS ###
     haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
-    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_2e5n.p')
-    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_2e5n.p')
+    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_1e4m.p')
+    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_1e4m.p')
 
     ### DUMP PARAMETERS DISTRIBUTIONS ###
     distdict = {name: dist for name, dist in zip(names, distlist)}

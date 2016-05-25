@@ -26,7 +26,8 @@ class OrbitDisplayGL(object):
         self.create_earthorblist(1)
         if self.hazdata is not None:
             if self.mode == 'orbit':
-                flat, inclined, self.haz_orbits = self.construct_orbits(self.hazdata)
+                self.haz_orbits = self._construct_orbits(self.hazdata)
+                # flat, inclined, self.haz_orbits = self.construct_orbits(self.hazdata)
                 # self.haz_orbits, inclined, rotated = self.construct_orbits(self.hazdata)
                 # flat, self.haz_orbits, rotated = self.construct_orbits(self.hazdata)
                 self.create_orbitlist(2, self.haz_orbits)
@@ -34,7 +35,8 @@ class OrbitDisplayGL(object):
                 self.construct_pointcloud(2, self.hazdata)
         if self.nohazdata is not None:
             if self.mode == 'orbit':
-                flat, inclined, self.nohaz_orbits = self.construct_orbits(self.nohazdata)
+                self.nohaz_orbits = self._construct_orbits(self.nohazdata)
+                # flat, inclined, self.nohaz_orbits = self.construct_orbits(self.nohazdata)
                 # self.nohaz_orbits, inclined, rotated = self.construct_orbits(self.nohazdata)
                 # flat, self.nohaz_orbits, rotated = self.construct_orbits(self.nohazdata)
                 self.create_orbitlist(3, self.nohaz_orbits)
@@ -171,9 +173,20 @@ class OrbitDisplayGL(object):
             rotorbits.append(rot_points)
         return flatorbits, incorbits, rotorbits
 
+
+    def _construct_orbits(self, data):
+        orbits = []
+        for row in data:
+            a, e, i, w, om = row
+            w, i, om = np.radians([w, i, om])
+            points = co.get_orbpoints_hc(a, e, w, i, om, numpoints=60)
+            orbits.append(points)
+        return orbits
+
+
     def construct_earthorbit(self):
         theta = np.linspace(0, 2*pi, 100)
-        self.earthpoints = np.array([co.get_earthorb_point(t) for t in theta])
+        self.earthpoints = np.array([co.get_earthorbpoint_hc(t) for t in theta])
 
     def construct_pointcloud(self, nlist, pointdata):
         # GL.glEnable(GL.GL_POINT_SMOOTH)
@@ -211,8 +224,8 @@ class OrbitDisplayGL(object):
 
 if __name__ == '__main__':
 
-    sources = ['./asteroid_data/haz_rand_small.p',
-               './asteroid_data/nohaz_rand_small.p']
+    sources = ['./asteroid_data/haz_rand_test.p',
+               './asteroid_data/nohaz_rand_test.p']
 
     # sources = ['./asteroid_data/haz.p', './asteroid_data/nohaz.p']
     cutcol = ['a', 'e', 'i', 'w', 'om']
