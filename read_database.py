@@ -195,7 +195,7 @@ if __name__ == '__main__':
     # database = pd.read_csv(database_path, sep=',', usecols=[0,4,6,7,8,9,15,
     #                        18,19,32,33,34,35,36,37,43,44,45,46,47,48,49])
     columns = ['a', 'e', 'i', 'w', 'om', 'q', 'H', 'neo', 
-               'pha', 'per', 'n', 'ma', 'epoch'] # 'moid'
+               'pha', 'per', 'n', 'ma', 'epoch', 'moid'] # 'moid'
     database = load_database(columns, jobtime=True)
     # database = read_csv(database_path, sep=',', usecols=columns,
     #                     low_memory=False, jobtime=True)
@@ -236,7 +236,7 @@ if __name__ == '__main__':
 
 
     ### RECALCULATE MOID BASED ON ORBITAL PARAMETERS ###
-    calc_moid(apollos, jobtime=True)
+    # calc_moid(apollos, jobtime=True)
     # neos, num_neos = cutoff_outcasts(neo)
 
     ### REMOVE DIM ASTEROIDS ###

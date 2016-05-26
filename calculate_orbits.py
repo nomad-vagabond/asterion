@@ -81,12 +81,21 @@ def _find_dist(t, a, e, w, i, om):
 def get_moid(a, e, w, i, om):
     # Returns Minimal Earth Orbit Intersection Distance
     # tmin = _get_rmin(a, e, w, i, om, direction="horizontal")
-    ta0 = -w  # initial angular parameter in asteroid orbital frame
-    te0 = om  # initial angular parameter in earth orbital frame
-    tamin = so.fmin(partial(_find_dist, a=a, e=e, w=w, i=i, om=om), [ta0, te0], disp=False)
-    # tamin = so.fmin(partial(_find_dist, a=a, e=e, w=w, i=i, om=om), [tmin, w], disp=False)
-    moid = _find_dist(tamin, a, e, w, i, om)
-    return moid 
+    # ta0 = w*0.5  # initial angular parameter in asteroid orbital frame
+    # te0 = om*0.2  # initial angular parameter in earth orbital frame
+    # ta0 = [-(w+pi), -w, w, (w+pi)]
+    # te0 = [-(om+pi), -om, om, (om+pi)]
+    # ta0 = [w-pi, w-pi*0.5, w, w+pi*0.5]
+    # te0 = [om-pi, om-pi*0.5, om, om+pi*0.5]
+    ta0 = [(w - pi*0.5), (w - pi*0.5), (w + pi*0.5), (w + pi*0.5)]
+    te0 = [(om - pi*0.5), (om + pi*0.5), (om + pi*0.5), (om - pi*0.5)]
+    moid_min = 5.45492
+    for ta, te in zip(ta0, te0):
+        tamin = so.fmin(partial(_find_dist, a=a, e=e, w=w, i=i, om=om), [ta, te], disp=False)
+        # tamin = so.fmin(partial(_find_dist, a=a, e=e, w=w, i=i, om=om), [tmin, w], disp=False)
+        moid = _find_dist(tamin, a, e, w, i, om)
+        moid_min = min(moid_min, moid)
+    return moid_min
     # return 0.05 + 0.02*(random.random() - random.random())
 
 def _get_nonuniform_angles(n=100):

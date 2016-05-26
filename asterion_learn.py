@@ -183,8 +183,8 @@ def classify_clusters(data, clf, haz_test, nohaz_test, dens_layers):
 if __name__ == '__main__':
 
     ### LOAD DATASETS ###
-    sources = ['./asteroid_data/haz_rand_1e4m.p', 
-           './asteroid_data/nohaz_rand_1e4m.p',
+    sources = ['./asteroid_data/haz_rand_2e5m.p', 
+           './asteroid_data/nohaz_rand_2e5m.p',
            './asteroid_data/haz_test.p', 
            './asteroid_data/nohaz_test.p']
     dumped = map(loadObject, sources)
@@ -214,12 +214,12 @@ if __name__ == '__main__':
         
     # eps = [0.005, 0.0055, 0.008, 0.012] #1e6
     # min_samples = [200, 180, 160, 100] #1e6
-    # eps = [0.0115, 0.0125, 0.018, 0.023] #2e5
-    # min_samples = [200, 160, 150, 100] #2e5
+    eps = [0.0115, 0.0125, 0.018, 0.023] #2e5
+    min_samples = [200, 160, 150, 100] #2e5
     # eps = [0.0188, 0.02, 0.027, 0.04] #1e4
     # min_samples = [275, 220, 140, 100] #1e4
-    eps = [0.02, 0.025, 0.027, 0.04] #1e4
-    min_samples = [200, 200, 140, 100] #1e4
+    # eps = [0.02, 0.025, 0.027, 0.04] #1e4
+    # min_samples = [200, 200, 140, 100] #1e4
 
     dens_layers = zip(eps, min_samples)
     # scales = [(0,360), (0,1)]
