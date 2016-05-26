@@ -16,15 +16,18 @@ Library uses data from the database provided by Ian Webster. On the first use of
 2. If you are using IPython or Jupyter Notebook open asterion.ipynb in notebook.
 
     Otherwise run scripts in next sequence:
-    - read_database.py (Load asteroid database and calculate MOID)
+    - read_database.py (Load asteroid database)
     - generate_orbits.py (Generate virtual asteroid orbits and calculate MOID)
     - asterion_learn.py (Train classifier on virtual asteroids and test it on real data)
+
+    *Pay attention and change if needed paths and names of destination objects representing datasets of hazardous and non-hazardous asteroids at the very end of each script.*
+
 
 ## Requirements
 
 - Python >= 2.7, 
 - NumPy >= 1.8.1
-- SciPy >= 0.13.3
+- SciPy >= 0.14.1
 - Pandas >= 0.18.0
 - scikit-learn >= 0.17.1
 - Matplotlib >= 1.3.1

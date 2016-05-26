@@ -18,41 +18,62 @@ EARTH_I = 0.0
 EARTH_W = np.radians(114.20783)
 EARTH_OM = np.radians(348.73936)
 
+def get_orbpoint_earth(t, method='direct'):
+    return get_orbpoint(t, EARTH_A, EARTH_E, EARTH_W, EARTH_I, EARTH_OM, method=method)
 
-def get_orbpoint_hc_direct(t, a, e, w, i, om):
-    # returns point in heliocentric coord frame using in-plane angular parameter t and 3 orbit plane angles
-    # distance to point from orbit focus
-    r = _get_r(a, e, t)
-    #heliocentric coords
+def get_orbpoint(t, a, e, w, i, om, method='direct'):
+    if method == 'direct':
+        return get_orbpoint_direct(t, a, e, w, i, om)
+    elif method == 'rotation':
+        return get_orbpoint_rotation(t, a, e, w, i, om)
+    else:
+        raise AttributeError('method "%s" is not specified.' % method)
+
+def get_orbpoints(a, e, w, i, om, numpoints=100, method='direct'):
+    theta = _get_nonuniform_angles(n=numpoints)
+    if method == 'direct':
+        points_hc = np.array([get_orbpoint_direct(t, a, e, w, i, om) for t in theta])
+    elif method == 'rotation':   
+        points_flat = np.array([_orbpoint_flat(t, a, e) for t in theta])
+        axis_w = np.array([cos(-w), sin(-w), 0.0])
+        rotw = _rotmatrix(axis_w, i)
+        points_inc = np.array([np.dot(point, rotw) for point in points_flat])
+        wb = om + w
+        rotz = _rotmatrix(Z_AXIS, wb)
+        points_hc = np.array([np.dot(point, rotz) for point in points_inc])
+    return points_hc
+
+def get_orbpoint_direct(t, a, e, w, i, om):
+    r = _get_r(t, a, e)
     x = r * (cos(om) * cos(t + w) - sin(om) * sin(t + w) * cos(i))
     y = r * (sin(om) * cos(t + w) + cos(om) * sin(t + w) * cos(i))
     z = r * (sin(t + w) * sin(i))
-    
     point = np.array([x, y, z])
     return point
 
-def get_earthorbpoint_hc(t):
-    return get_orbpoint_hc(EARTH_A, EARTH_E, EARTH_W, EARTH_I, EARTH_OM, t)
-
-def get_orbpoint_hc(a, e, w, i, om, t):
-    point = _get_orbpoint(a, e, t)             # point in orbital plane:
-    axis_w = np.array([cos(-w), sin(-w), 0])
+def get_orbpoint_rotation(t, a, e, w, i, om):
+    point = _orbpoint_flat(t, a, e)            # point in orbital plane:
+    axis_w = np.array([cos(-w), sin(-w), 0.0])
     point_inc = _rotate(point, axis_w, i)      # get inclined point:
     wb = om + w
     point_hc = _rotate(point_inc, Z_AXIS, wb)  # point in heliocentric coords:
     return point_hc
 
-def _get_r(a, e, t):
-    r = a*(1 - e**2)/(1 + e*cos(t))
-    return r
-
-def _get_orbpoint(a, e, t): 
-    r = _get_r(a, e, t)
+def _orbpoint_flat(t, a, e): 
+    r = _get_r(t, a, e)
     x = r * cos(t)
     y = r * sin(t)
     return [x, y, 0]
 
-def _get_rotmatrix(ax, angle):
+def _get_r(t, a, e):
+    r = a*(1 - e**2)/(1 + e*cos(t))
+    return r
+
+def _rotate(point, ax, angle):
+    rot = _rotmatrix(ax, angle)
+    return np.dot(point, rot)
+
+def _rotmatrix(ax, angle):
     cosa = cos(angle)
     sina = sin(angle)
     x, y, z = ax
@@ -61,42 +82,22 @@ def _get_rotmatrix(ax, angle):
                     [z*x*(1 - cosa) - y*sina, z*y*(1 - cosa) + x*sina, cosa + (z**2)*(1 - cosa)]])
     return rot
 
-def _rotate(point, ax, angle):
-    rot = _get_rotmatrix(ax, angle)
-    return np.dot(point, rot)
-
 def _find_dist(t, a, e, w, i, om):
-    # earth_point = get_earthorbpoint_hc(ta[1])
-    # apoint = inclined_orb_point(a, e, w, i, ta[0])
-    # apoint = rotated_orb_point(a, e, w, i, omega, ta[0])
-    # asteroid_point = get_orbpoint_hc(a, e, w, i, om, t[0])
-    # earth_point = get_earthorbpoint_hc(t[1])
-
-    asteroid_point = get_orbpoint_hc_direct(t[0], a, e, w, i, om)
-    earth_point = get_orbpoint_hc_direct(t[1], EARTH_A, EARTH_E, EARTH_W, EARTH_I, EARTH_OM)
-    # earth_point = get_orbpoint_hc(EARTH_A, EARTH_E, EARTH_W, EARTH_I, EARTH_OM, t[1])
+    asteroid_point = get_orbpoint(t[0], a, e, w, i, om)
+    earth_point = get_orbpoint_earth(t[1])
     dist = norm(asteroid_point - earth_point)
     return dist
 
 def get_moid(a, e, w, i, om):
-    # Returns Minimal Earth Orbit Intersection Distance
-    # tmin = _get_rmin(a, e, w, i, om, direction="horizontal")
-    # ta0 = w*0.5  # initial angular parameter in asteroid orbital frame
-    # te0 = om*0.2  # initial angular parameter in earth orbital frame
-    # ta0 = [-(w+pi), -w, w, (w+pi)]
-    # te0 = [-(om+pi), -om, om, (om+pi)]
-    # ta0 = [w-pi, w-pi*0.5, w, w+pi*0.5]
-    # te0 = [om-pi, om-pi*0.5, om, om+pi*0.5]
+    "Returns Minimal Earth Orbit Intersection Distance"
     ta0 = [(w - pi*0.5), (w - pi*0.5), (w + pi*0.5), (w + pi*0.5)]
     te0 = [(om - pi*0.5), (om + pi*0.5), (om + pi*0.5), (om - pi*0.5)]
-    moid_min = 5.45492
+    moid_min = 5.45492 # Jupiter aphelion
     for ta, te in zip(ta0, te0):
-        tamin = so.fmin(partial(_find_dist, a=a, e=e, w=w, i=i, om=om), [ta, te], disp=False)
-        # tamin = so.fmin(partial(_find_dist, a=a, e=e, w=w, i=i, om=om), [tmin, w], disp=False)
-        moid = _find_dist(tamin, a, e, w, i, om)
+        ta_te_min = so.fmin(partial(_find_dist, a=a, e=e, w=w, i=i, om=om), [ta, te], disp=False)
+        moid = _find_dist(ta_te_min, a, e, w, i, om)
         moid_min = min(moid_min, moid)
     return moid_min
-    # return 0.05 + 0.02*(random.random() - random.random())
 
 def _get_nonuniform_angles(n=100):
     # theta = np.linspace(0, 2*pi, numpoints)
@@ -129,29 +130,12 @@ def _get_nonuniform_angles(n=100):
     return theta
 
 
-def get_orbpoints_hc(a, e, w, i, om, numpoints=100):
-    theta = _get_nonuniform_angles(n=numpoints)
-    points = np.array([_get_orbpoint(a, e, t) for t in theta])
-    axis_w = np.array([cos(-w), sin(-w), 0.0])
-    rotw = _get_rotmatrix(axis_w, i)
-    points_inc = np.array([np.dot(point, rotw) for point in points])
-    wb = om + w
-    rotz = _get_rotmatrix(Z_AXIS, wb)
-    points_hc = np.array([np.dot(point, rotz) for point in points_inc])
-    return points_hc
-
-
-
-
-
-
-
 # def get_incpoints(w, i, points):
 #     # r = _get_r(a, e, w)
 #     # axis = np.array([r*cos(w), r*sin(w), 0])
 #     # axis0 = axis/norm(axis)
 #     axis_w = np.array([cos(-w), sin(-w), 0.0])
-#     rot = _get_rotmatrix(axis_w, i)
+#     rot = _rotmatrix(axis_w, i)
 #     inc_points = []
 #     for point in points:
 #         inc_point = np.dot(point, rot)
@@ -161,14 +145,12 @@ def get_orbpoints_hc(a, e, w, i, om, numpoints=100):
 # def _get_rotpoints(w, i, omega, inc_points):
 #     angle = omega + w
 #     zaxis = np.array([0.0, 0.0, 1.0])
-#     rot = _get_rotmatrix(zaxis, angle)
+#     rot = _rotmatrix(zaxis, angle)
 #     rot_points = []
 #     for point in inc_points:
 #         rot_point = np.dot(point, rot)
 #         rot_points.append(rot_point)
 #     return np.asarray(rot_points)
-
-
 
 # def _get_rmin(a, e, w, i, omega, direction):
 #     if direction == 'horizontal':
@@ -202,14 +184,13 @@ def get_orbpoints_hc(a, e, w, i, om, numpoints=100):
 #     return rotpoint
 
 # def inclined_orb_point(a, e, w, i, t):
-#     point = _get_orbpoint(a, e, t)
+#     point = _orbpoint_flat(a, e, t)
 #     # r = _get_r(a, e, w)
 #     # axis = np.array([r*cos(w), r*sin(w), 0])
 #     # axis0 = axis/norm(axis)
 #     axis0 = np.array([cos(-w), sin(-w), 0])
 #     rotpoint = _rotate(point, axis0, i)
 #     return rotpoint
-
 
 # def _get_rxry(a, e, w, i, omega):
 #     tmin = _get_rmin(a, e, w, i, omega, direction="horizontal")
@@ -225,13 +206,10 @@ def get_orbpoints_hc(a, e, w, i, om, numpoints=100):
 # #     ry = _get_rver(tmin, a, e, w, i, omega)
 # #     return rx, ry
 
-
-# # def get_earthorbpoint_hc(alpha):
+# # def get_orbpoint_earth(alpha):
 # #     x = cos(alpha)
 # #     y = sin(alpha)
 # #     return [x, y, 0]
-
-
 
 # # def _get_rmin(a, e, w, i, omega, direction):
 # #     if direction == 'horizontal':
@@ -240,8 +218,6 @@ def get_orbpoints_hc(a, e, w, i, om, numpoints=100):
 # #         func = partial(_get_rver, a=a, e=e, w=w, i=i, omega=omega)
 # #     func_min = so.fmin(func, pi/2)
 # #     return func_min
-
-
 
 # def find_center(a, e, w, i, omega):
 #     c = np.array([-1,0,0])*(a*e)
@@ -273,55 +249,50 @@ def get_orbpoints_hc(a, e, w, i, om, numpoints=100):
 #     return rx, ry, cx, cy
 
 
+# if __name__ == '__main__':
+
+#     a = 1.07806413e+00
+#     e = 8.26926230e-01
+#     i = np.radians(2.28312083e+01)
+#     w = np.radians(3.13740962e+01)
+#     om = np.radians(8.80199731e+01)
+
+#     # a = 1.5
+#     # e = 0.9
+#     # i = -np.radians(30)
+#     # om = np.radians(0)
+#     # w = np.radians(150)
+#     # om = w
 
 
+#     # tmin = _get_rmin(a, e, w, i, om, direction="horizontal")
+
+#     # rx = _get_rhor(tmin, a, e, w, i, om)
+#     # ry = _get_rver(tmin, a, e, w, i, om)
+#     rx, ry = _get_rxry(a, e, w, i, om)
+#     print "rx, ry:", rx, ry
+
+#     moid = get_moid(a, e, w, i, om)
+#     print "moid:", moid
 
 
+#     # vmin = _get_rmin(a, e, w, i, om, direction="vertical")
+#     # print "hmin, vmin:", hmin, vmin
+#     # print "_get_rhor(0.086603, a, e, w, i, om):", _get_rhor(0.086603, a, e, w, i, om)
+#     # print "_get_rhor(0.0, a, e, w, i, om):", _get_rhor(0.0, a, e, w, i, om)
+#     # print _get_r1(0.186585)
 
-if __name__ == '__main__':
+#     orb_points = get_points(a, e)
+#     inc_points = get_incpoints(w, i, orb_points)
+#     rot_points = _get_rotpoints(w, i, om, inc_points)
 
-    a = 1.07806413e+00
-    e = 8.26926230e-01
-    i = np.radians(2.28312083e+01)
-    w = np.radians(3.13740962e+01)
-    om = np.radians(8.80199731e+01)
+#     theta = np.linspace(0, 2*pi, 100)
+#     earthpoints = np.array([get_orbpoint_earth(t) for t in theta])
 
-    # a = 1.5
-    # e = 0.9
-    # i = -np.radians(30)
-    # om = np.radians(0)
-    # w = np.radians(150)
-    # om = w
+#     # plot_orbits2D(orb_points, inc_points, rot_points)
+#     plot_orbits2D(orb_points, earthpoints, rot_points)
 
-
-    # tmin = _get_rmin(a, e, w, i, om, direction="horizontal")
-
-    # rx = _get_rhor(tmin, a, e, w, i, om)
-    # ry = _get_rver(tmin, a, e, w, i, om)
-    rx, ry = _get_rxry(a, e, w, i, om)
-    print "rx, ry:", rx, ry
-
-    moid = get_moid(a, e, w, i, om)
-    print "moid:", moid
-
-
-    # vmin = _get_rmin(a, e, w, i, om, direction="vertical")
-    # print "hmin, vmin:", hmin, vmin
-    # print "_get_rhor(0.086603, a, e, w, i, om):", _get_rhor(0.086603, a, e, w, i, om)
-    # print "_get_rhor(0.0, a, e, w, i, om):", _get_rhor(0.0, a, e, w, i, om)
-    # print _get_r1(0.186585)
-
-    orb_points = get_points(a, e)
-    inc_points = get_incpoints(w, i, orb_points)
-    rot_points = _get_rotpoints(w, i, om, inc_points)
-
-    theta = np.linspace(0, 2*pi, 100)
-    earthpoints = np.array([get_earthorbpoint_hc(t) for t in theta])
-
-    # plot_orbits2D(orb_points, inc_points, rot_points)
-    plot_orbits2D(orb_points, earthpoints, rot_points)
-
-    # plt.plot(points, color="red")
-    # plt.plot(points_rot, color="blue")
-    # plt.grid(True)
-    # plt.show()
+#     # plt.plot(points, color="red")
+#     # plt.plot(points_rot, color="blue")
+#     # plt.grid(True)
+#     # plt.show()

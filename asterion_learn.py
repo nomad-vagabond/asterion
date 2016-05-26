@@ -214,8 +214,8 @@ if __name__ == '__main__':
         
     # eps = [0.005, 0.0055, 0.008, 0.012] #1e6
     # min_samples = [200, 180, 160, 100] #1e6
-    eps = [0.0115, 0.0125, 0.018, 0.023] #2e5
-    min_samples = [200, 160, 150, 100] #2e5
+    eps = [0.01, 0.012, 0.018, 0.023] #2e5
+    min_samples = [195, 190, 150, 100] #2e5
     # eps = [0.0188, 0.02, 0.027, 0.04] #1e4
     # min_samples = [275, 220, 140, 100] #1e4
     # eps = [0.02, 0.025, 0.027, 0.04] #1e4
@@ -223,8 +223,8 @@ if __name__ == '__main__':
 
     dens_layers = zip(eps, min_samples)
     # scales = [(0,360), (0,1)]
-    # clf = KNeighborsClassifier(n_neighbors=int(0.01*len(data)))
-    clf = svm.SVC(gamma=100.) #kernel='poly'
+    # clf = KNeighborsClassifier(n_neighbors=int(0.01*len(haz_gen)))
+    clf = svm.SVC(gamma=80) #kernel='poly'
     clusters, xtrain, clf, haz_prob = classify_clusters(haz_gen, clf, haz_real, 
                                                      nohaz_real, dens_layers)
     vd.plot_densclusters(clusters, scales=scales, labels=labels)

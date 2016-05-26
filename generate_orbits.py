@@ -401,6 +401,8 @@ if __name__ == '__main__':
     haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
     rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_2e5m.p')
     rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_2e5m.p')
+    print "haz_rand:", len(haz_rand)
+    print "nohaz_rand:", len(nohaz_rand)
 
     ### DUMP PARAMETERS DISTRIBUTIONS ###
     distdict = {name: dist for name, dist in zip(names, distlist)}

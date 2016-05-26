@@ -158,35 +158,33 @@ class OrbitDisplayGL(object):
         GL.glEnd()
         GL.glEndList()
         
-    def construct_orbits(self, data):
-        flatorbits = []
-        incorbits = []
-        rotorbits = []
-        for row in data:
-            a, e, i, w, omega = row
-            w, i, omega = np.radians([w, i, omega])
-            flat_points = co.get_points(a, e, numpoints=30)
-            inc_points = co.get_incpoints(w, i, flat_points)
-            rot_points = co.get_rotpoints(w, i, omega, inc_points)
-            flatorbits.append(flat_points)
-            incorbits.append(inc_points)
-            rotorbits.append(rot_points)
-        return flatorbits, incorbits, rotorbits
-
+    # def construct_orbits(self, data):
+    #     flatorbits = []
+    #     incorbits = []
+    #     rotorbits = []
+    #     for row in data:
+    #         a, e, i, w, omega = row
+    #         w, i, omega = np.radians([w, i, omega])
+    #         flat_points = co.get_points(a, e, numpoints=30)
+    #         inc_points = co.get_incpoints(w, i, flat_points)
+    #         rot_points = co.get_rotpoints(w, i, omega, inc_points)
+    #         flatorbits.append(flat_points)
+    #         incorbits.append(inc_points)
+    #         rotorbits.append(rot_points)
+    #     return flatorbits, incorbits, rotorbits
 
     def _construct_orbits(self, data):
         orbits = []
         for row in data:
             a, e, i, w, om = row
             w, i, om = np.radians([w, i, om])
-            points = co.get_orbpoints_hc(a, e, w, i, om, numpoints=60)
+            points = co.get_orbpoints(a, e, w, i, om, numpoints=60)
             orbits.append(points)
         return orbits
 
-
     def construct_earthorbit(self):
         theta = np.linspace(0, 2*pi, 100)
-        self.earthpoints = np.array([co.get_earthorbpoint_hc(t) for t in theta])
+        self.earthpoints = np.array([co.get_orbpoint_earth(t) for t in theta])
 
     def construct_pointcloud(self, nlist, pointdata):
         # GL.glEnable(GL.GL_POINT_SMOOTH)

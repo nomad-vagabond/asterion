@@ -116,7 +116,7 @@ def get_hazMOID(database):
     nohaz = database[database.moid > 0.05]
     return haz, nohaz
 
-def cutoff_outcasts(data):
+def cutoff_outliers(data):
     data_cuta = data[data.a < 5.0]
     data_cuti = data_cuta[data_cuta.i < 100.]
     return data_cuti, len(data_cuti)
@@ -232,12 +232,12 @@ if __name__ == '__main__':
     # apollos_cuti2 = apollos_cuti[apollos_cuti.i < 15.0]
     # apollos_cute = apollos[apollos.e < 0.5]
     # apollos_cuti2 = apollos_cuti[apollos_cuti.i < 15.0]
-    apollos, num_apollos = cutoff_outcasts(apollos)
+    apollos, num_apollos = cutoff_outliers(apollos)
 
 
     ### RECALCULATE MOID BASED ON ORBITAL PARAMETERS ###
     # calc_moid(apollos, jobtime=True)
-    # neos, num_neos = cutoff_outcasts(neo)
+    # neos, num_neos = cutoff_outliers(neo)
 
     ### REMOVE DIM ASTEROIDS ###
     # bright = cut_magnitude(apollos)
