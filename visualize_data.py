@@ -48,7 +48,7 @@ def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None,
     plt.show()
 
 def plot_densclusters(datasets, labels=None, scales=[(0, 1), (0, 1)], 
-                      invertaxes=[0,1], figsize=(10,10), cmap='winter'):
+                      invertaxes=[0,1], figsize=(12,10), cmap='winter'):
     # fig, ax = plt.subplots(figsize=figsize)
     fig = plt.figure(figsize=figsize)
     bgcolor = (0.05, 0.06, 0.14)
@@ -71,7 +71,7 @@ def plot_densclusters(datasets, labels=None, scales=[(0, 1), (0, 1)],
     plt.show()
 
 def plot_distribution(ax=None, haz=None, nohaz=None, show=True, labels=None,
-                      invertaxes=[0,1], scales=[(0, 1), (0, 1)], figsize=(10,10),
+                      invertaxes=[0,1], scales=[(0, 1), (0, 1)], figsize=(12,10),
                       colors=["orange", "blue"]):
     if ax is None:
         fig = plt.figure(figsize=figsize)

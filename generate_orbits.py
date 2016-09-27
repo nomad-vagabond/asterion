@@ -119,6 +119,8 @@ class HarmonicDistribution(object):
         # print "rvs_base:", rvs_base, rvs_base.shape
         # print "rvs_add:", rvs_add, rvs_add.shape
         rvs = np.hstack(np.concatenate((rvs_base, rvs_add)))
+        # rvs = np.random.permutation(rvs_)
+        
         # print "len(rvs):", len(rvs)
         # return np.random.uniform(low=0, high=360, size=size)
         return rvs
@@ -246,14 +248,8 @@ class FitDist(object):
 
         return cdf
 
-    def get_rvs(self, size=100):
-        """Returns random variables using fitted continuous distribution"""
-        rvs = self.distfit.rvs(size=size)
 
-        # where_plusinf = np.where(rvs == np.inf)
-        # where_minusinf = np.where(rvs == (-np.inf))
-        # rvs[where_plusinf] = self.dmax
-        # rvs[where_minusinf] = self.dmin
+    def _cut_tails(self, rvs):
 
         below_bounds = np.where(rvs < self.dmin)[0]
         # print "below_bounds:", below_bounds.shape, #type(below_bounds)
@@ -261,13 +257,26 @@ class FitDist(object):
         # print "above_bounds:", above_bounds.shape, #type(below_bounds)
         bad = np.concatenate((below_bounds, above_bounds))
         rvs_less = np.delete(rvs, bad)
-        rvs_add = np.random.uniform(low=self.dmin, high=self.dmax, size=len(bad))
-        rvs = np.concatenate((rvs_less, rvs_add))
+        if len(bad) > 4:
+            rvs_add = self.distfit.rvs(size=len(bad))
+        else:
+            rvs_add = np.random.uniform(low=self.dmin, high=self.dmax, size=len(bad))
+        
+        rvs_ = np.concatenate((rvs_add, rvs_less))
+        rvs_ = np.random.permutation(rvs_)
+        
+        return rvs_, len(rvs_add)
 
-        # where_plusinf = np.where(rvs == np.inf)
-        # where_minusinf = np.where(rvs == (-np.inf))
-        # print "where_minusinf:", where_minusinf
-        # print "rvs:", rvs
+
+    def get_rvs(self, size=100):
+        """Returns random variables using fitted continuous distribution"""
+        rvs = self.distfit.rvs(size=size)
+
+        rvs, add_num = self._cut_tails(rvs)
+        while add_num > 4:
+            # print "cut tails and fill up"
+            rvs, add_num = self._cut_tails(rvs)
+
         return rvs
 
     def plot_distfit(self, npoints=100):
@@ -393,26 +402,26 @@ if __name__ == '__main__':
     print "randdata sample:\n", randdata[:5]
     plot_param_distributions(distlist, names)
     
-    ### CALCULATE MOID ###
-    data = rdb.calc_moid(randdata, jobtime=True)
-    # haz, nohaz = rdb.get_hazMOID(data)
+    # ### CALCULATE MOID ###
+    # data = rdb.calc_moid(randdata, jobtime=True)
+    # # haz, nohaz = rdb.get_hazMOID(data)
 
-    ### DUMP RANDOM ORBITS ###
-    haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
-    rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_2e5m.p')
-    rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_2e5m.p')
-    print "haz_rand:", len(haz_rand)
-    print "nohaz_rand:", len(nohaz_rand)
+    # ### DUMP RANDOM ORBITS ###
+    # haz_rand, nohaz_rand = rdb.get_hazMOID(randdata)
+    # rdb.dumpObject(haz_rand, './asteroid_data/haz_rand_2e5m.p')
+    # rdb.dumpObject(nohaz_rand, './asteroid_data/nohaz_rand_2e5m.p')
+    # print "haz_rand:", len(haz_rand)
+    # print "nohaz_rand:", len(nohaz_rand)
 
-    ### DUMP PARAMETERS DISTRIBUTIONS ###
-    distdict = {name: dist for name, dist in zip(names, distlist)}
-    rdb.dumpObject(distdict, './asteroid_data/param_dist.p')
-    # rdb.dumpObject(distlist, './asteroid_data/param_distlist.p')
+    # ### DUMP PARAMETERS DISTRIBUTIONS ###
+    # distdict = {name: dist for name, dist in zip(names, distlist)}
+    # rdb.dumpObject(distdict, './asteroid_data/param_dist.p')
+    # # rdb.dumpObject(distlist, './asteroid_data/param_distlist.p')
 
-    rand_params = gen_rand_params(num=4)
-    # print "rand_params:", rand_params
-    # for key, value in rand_params.items():
-    #     print "%s\t%d" %(key, len(value))
+    # rand_params = gen_rand_params(num=4)
+    # # print "rand_params:", rand_params
+    # # for key, value in rand_params.items():
+    # #     print "%s\t%d" %(key, len(value))
 
 
 
