@@ -1,4 +1,5 @@
 import numpy as np
+import math
 # from generate_random_orbits import dumpObject, loadObject
 # from read_database import calc_rascend, calc_orbc, calc_rclose 
 import read_database as rdb
@@ -14,6 +15,24 @@ sources = ['./asteroid_data/haz_rand_2e5.p',
            './asteroid_data/nohaz_rand_2e5.p',
            './asteroid_data/haz_test.p', 
            './asteroid_data/nohaz_test.p']
+
+
+def learning_sets(haz, nohaz, cutcol):
+    haz_cut, nohaz_cut = prepare_data(cutcol=cutcol, datasets=[haz, nohaz])
+    merged = np.concatenate((haz_cut, nohaz_cut))
+    data = np.random.permutation(merged)
+    return split_by_lastcol(data)
+
+
+def mix_up(haz, nohaz):
+    hazidcol = np.array([[1.0]*len(haz)]).T
+    nohazidcol = np.array([[0.0]*len(nohaz)]).T
+    haz_ = np.append(haz, hazidcol, axis=1)
+    nohaz_ = np.append(nohaz, nohazidcol, axis=1)
+    join_train = np.concatenate((haz_, nohaz_))
+    data_train = np.random.permutation(join_train)
+    xdata_train, ydata_train = split_by_lastcol(data_train)
+    return xdata_train, ydata_train
 
 
 # sources = ['./asteroid_data/haz_rand_test.p', 
@@ -49,17 +68,24 @@ def get_wir_points(data):
         rcol.append(r)
 
 def prepare_data(cutcol=['a', 'e'], datasets=None):
-    print "prepare..."
+    # print "prepare..."
     if datasets is None:
         datasets = map(rdb.loadObject, sources)
     data_arr = []
-    for pha, dataset in zip([1,0,1,0], datasets):
+    ds = int(len(datasets)/2.0)
+    bins = [1,0,1,0]*ds
+    for pha, dataset in zip(bins, datasets):
         cutdata = dataset[cutcol]
         arr = cutdata.as_matrix()
         phacol = np.array([[pha]*len(arr)]).T
         arr_ = np.append(arr, phacol, axis=1)
         data_arr.append(arr_)
     return data_arr
+
+def cut_2params(cols, datasets):
+    datasets = prepare_data(cutcol=cols, datasets=datasets)
+    datasets_x = [datasets[i][:, :-1] for i in range(len(datasets))]
+    return datasets_x[:2]
 
 def get_learndata(datasets, split=True):
     # datasets = prepare_data(cutcol)

@@ -1,10 +1,13 @@
+import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from copy import deepcopy
 # from mpl_toolkits.mplot3d import Axes3D
 # import matplotlib.colors as colors
 # import matplotlib.cm as cmx
 
+from functools import partial
 from sklearn.neighbors import KNeighborsClassifier, RadiusNeighborsClassifier, NearestNeighbors
 from sklearn import svm
 # from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
@@ -46,7 +49,9 @@ def classify_hazardous(datasets, clf, crossval=False):
         for tr, ts in k_fold:
             xtrain, ytrain = xdata[tr], ydata[tr]
             xtest, ytest = xdata[ts], ydata[ts]
-            map(normalize_dataset, [xtrain, xtest])
+            # map(normalize_dataset, [xtrain, xtest])
+            xtrain, s_ = normalize_dataset(xtrain)
+            xtest, s_ = normalize_dataset(xtest)
             fit_predict(xtrain, ytrain, xtest, ytest, clf)
         print "done."
 
@@ -73,7 +78,7 @@ def fit_predict(xtrain, ytrain, xtest, ytest, clf):
 
 def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False, 
                      figsize=(10, 10)):
-    data_x_norm = normalize_dataset(data_x, copy=True)
+    data_x_norm, scales = normalize_dataset(data_x)
     dbsc = DBSCAN(eps=eps, min_samples=min_samples).fit(data_x_norm)  # 0.015  100  | 0.021  160
     labels = dbsc.labels_
     unique_labels = np.unique(labels)
@@ -102,17 +107,29 @@ def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False,
         plt.show()
     return dbsc
 
-def normalize_dataset(dataset, copy=False):
-    ncol = dataset.shape[1]
+def normalize_dataset(dataset, copy=True):
+    
     if copy:
         dataset_out = np.zeros_like(dataset)
     else:
         dataset_out = dataset
-    for col in range(ncol):
-        col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
-        scale = col_max - col_min
-        dataset_out[:, col] = (dataset[:, col] - col_min)/scale
-    return dataset_out
+
+    if len(dataset.shape) > 1:
+        scales = []
+        ncol = dataset.shape[1]    
+        for col in range(ncol):
+            col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+            scales.append((col_min, col_max))
+            scale = col_max - col_min
+            dataset_out[:, col] = (dataset[:, col] - col_min)/scale
+        # return dataset_out
+    else:
+        data_min, data_max = np.min(dataset), np.max(dataset)
+        scale = data_max - data_min
+        dataset_out = (dataset - data_min)/scale
+        scales = [data_min, data_max]
+
+    return dataset_out, scales
 
 def merge_clusters(data, labels, class_id, tail=False):
     """Merges all density-based clusters and add class ID column"""
@@ -145,6 +162,8 @@ def classify_clusters(data, clf, haz_test, nohaz_test, dens_layers):
     merged_clusters = []
     for class_id, (eps, min_samples) in enumerate(dens_layers):
         densclust = density_clusters(data_, eps=eps, min_samples=min_samples)
+        print "len(densclust.labels_):", len(densclust.labels_), type(densclust.labels_)
+        print np.unique(densclust.labels_)
         merged, data_ = merge_clusters(data_, densclust.labels_, class_id)
         merged_clusters.append(merged)
 
@@ -177,6 +196,175 @@ def classify_clusters(data, clf, haz_test, nohaz_test, dens_layers):
     # scales = [(min(data[:, 0]), max(data[:, 0])), (min(data[:, 1]), max(data[:, 1]))]
     # vd.plot_classifier(merged_px, clf, num=200, haz=haz_test, nohaz=nohaz_test, clustprobs=haz_prob, scales=scales)
     return merged_clusters, merged_px, clf, haz_prob
+ 
+def classify_dbclusters(clusters, clf, haz_test, nohaz_test):
+    """Classifies data by density cluster IDs and calculates hazardous
+       asteroids' mass fraction in clusters."""
+
+    mixed = np.random.permutation(np.concatenate(tuple(clusters)))
+
+    # clf = KNeighborsClassifier(n_neighbors=int(0.01*len(data)))
+    # clf = svm.SVC(C=1, gamma=100.) #kernel='poly'
+    mixed_x, mixed_y = split_by_lastcol(mixed)
+    fitter = clf.fit(mixed_x, mixed_y)
+
+    ids = range(1, len(clusters)+1)
+    predict_haz = clf.predict(haz_test)
+    predict_nohaz = clf.predict(nohaz_test)
+    # print "predict_haz:", predict_haz[:10]
+    # print "predict_nohaz:", predict_nohaz[:10]
+
+    classnum_haz = np.bincount(predict_haz.astype(int))
+    classnum_nohaz = np.bincount(predict_nohaz.astype(int))
+    # print "classnum_haz:", classnum_haz[:10]
+    # print "classnum_nohaz:", classnum_nohaz[:10]
+
+    haz_prob = ([haz/float(haz + nohaz) 
+                for haz, nohaz in zip(classnum_haz, classnum_nohaz)])
+    print "haz_prob:", haz_prob
+
+    # scales = [(min(data[:, 0]), max(data[:, 0])), (min(data[:, 1]), max(data[:, 1]))]
+    # vd.plot_classifier(merged_px, clf, num=200, haz=haz_test, nohaz=nohaz_test, clustprobs=haz_prob, scales=scales)
+    return mixed_x, clf, haz_prob
+
+def extract_dbclusters(data, dens_layers, verbose=False):
+    data_ = deepcopy(data)
+    level = 1
+    extracted_clusters = []
+    for eps, min_samples in dens_layers:
+        densclust = density_clusters(data_, eps=eps, min_samples=min_samples)
+        max_ind = max(densclust.labels_)
+        for i in range(max_ind + 1):
+            clusters_ind = np.where(densclust.labels_ == i)[0]
+            extracted = data_[clusters_ind]
+            id_col = (i + level) * np.ones((len(extracted),1), dtype=int)
+            extracted = np.append(extracted, id_col, axis=1)
+            extracted_clusters.append(extracted)
+        rest_ind = np.where(densclust.labels_ == -1)[0]
+        data_ = data_[rest_ind]
+        level += (max(densclust.labels_) + 1)
+
+    id_col = (level + 0) * np.ones((len(data_),1), dtype=int)
+    extracted = np.append(data_, id_col, axis=1)
+    extracted_clusters.append(extracted)
+    data_ = []
+    if verbose:
+        print "extracted_clusters\n [ID, number of elements]"
+        for ec in extracted_clusters:
+            print [ec[0][-1], len(ec)]
+    return extracted_clusters
+
+
+def merge_dbclusters(clusters, megrgemap, merge_rest=True):
+    
+    clusters_merged = []
+    clusters_ = deepcopy(clusters)
+    left_inds = set(range(1, len(clusters)+1))
+    # print "left_inds before:", left_inds
+    merged_inds = []
+
+    for clust_ids in megrgemap:
+        merged = []
+        # left = []
+        # left_inds = set()
+        for i, cluster in enumerate(clusters):   
+            if (i+1) in clust_ids:
+                # left.append(cluster) 
+                # left_inds.add(i)
+            # else:
+                # left_indsG = left_indsG - set([i+1])
+                merged_inds.append(i+1)
+                if len(merged) > 0:
+                    merged = np.concatenate((merged, cluster))
+                else:
+                    merged = cluster
+        # clusters_ = left
+        # left_indsG = set(list(left_indsG) + list(left_inds))
+        # left.append(merged)
+        clusters_merged.append(merged)
+    # d = [clusters_merged.append(clust_left) for clust_left in left]
+    # print "merged_inds:", merged_inds
+    left_inds = left_inds - set(merged_inds)
+    # print "len(clusters_merged):", len(clusters_merged)
+    # print "left_inds:", left_inds
+
+    if merge_rest:
+        rest = []
+        # rest = np.hstack(list(left_inds))
+        for j in list(left_inds):
+            # rest = np.concatenate((rest, clusters[j-1]))
+            cluster = clusters[j-1]
+            # print "cluster.shape:", cluster.shape
+            if len(rest) > 0:
+                rest = np.concatenate((rest, cluster))
+            else:
+                rest = cluster
+        clusters_merged.append(rest)
+    else:
+        for j in list(left_inds):
+            cluster = clusters[j-1]
+            clusters_merged.append(cluster)
+
+    for i, cluster in enumerate(clusters_merged):
+        cluster[...,-1] = i + 1
+
+
+    return clusters_merged
+
+
+
+def split_minigroups(subgroup, levels):
+    slices = list(zip(levels[:-1]*0.001, levels[1:]*1.001))
+    # print "slices:", slices
+    minigroups = [[] for s in slices]
+    minigroups_inds = [[] for s in slices]
+#     print minigroups
+    for i, v in enumerate(subgroup):
+        for j, s in enumerate(slices):
+            if v > s[0] and v <= s[1]:
+#                 print "s:", s, v
+                minigroups[j].append(v)
+                minigroups_inds[j].append(i)
+                break
+#     return minigroups
+    return minigroups_inds
+
+
+def linearcut_rotate(p1, p2, haz_cut, nohaz_cut):
+    # a = (p1[1] - p2[1]) / (p1[0] - p2[0])
+    # b = p2[1] - a * p2[0]
+    
+    p1a, p2a = np.asarray(p1), np.asarray(p2)
+    v = p2a - p1a
+    v0 = -v/np.linalg.norm(v)
+    
+    x0 = np.array([0,1])
+    cosphi = np.dot(v0, x0)
+    sinphi = math.sqrt(1 - cosphi**2)
+    MR = np.array([[cosphi, -sinphi], [sinphi, cosphi]])
+    
+    haz_cut_rot = np.asarray([np.dot(hz, MR) for hz in haz_cut])
+    nohaz_cut_rot = np.asarray([np.dot(nhz, MR) for nhz in nohaz_cut])
+    
+    p1_rot = np.dot(p1a, MR)
+    p2_rot = np.dot(p2a, MR)
+    
+    return p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot
+
+
+def normgrid_kde(kde, num=101, levnum=4, scales=[(0,1), (0,1)]):
+    grid = np.linspace(0, 1, num)
+    X, Y = np.meshgrid(grid, grid)
+    xy = np.vstack([X.ravel(), Y.ravel()]).T
+    Z = kde.score_samples(xy).reshape(X.shape)
+    levels = np.linspace(0, Z.max(), levnum)
+    X_, Y_ = vd._get_datagrid(scales[0], scales[1], num)
+    return levels, [X_, Y_, Z]
+
+
+
+
+
 
 
 
@@ -184,9 +372,9 @@ if __name__ == '__main__':
 
     ### LOAD DATASETS ###
     sources = ['./asteroid_data/haz_rand_2e5m.p', 
-           './asteroid_data/nohaz_rand_2e5m.p',
-           './asteroid_data/haz_test.p', 
-           './asteroid_data/nohaz_test.p']
+               './asteroid_data/nohaz_rand_2e5m.p',
+               './asteroid_data/haz_test.p', 
+               './asteroid_data/nohaz_test.p']
     dumped = map(loadObject, sources)
     datasets = prepare_data(cutcol=['w', 'q'], datasets=dumped)
     labels=['Argument of periapsis (w)', 'Perihelion distance (q)']
@@ -201,7 +389,8 @@ if __name__ == '__main__':
     ### NORMALIZE DATASET'S DIMENSIONS ###
     x, y = haz_gen[:, 0], haz_gen[:, 1]
     scales = [(x.min(), x.max()),  (y.min(), y.max())]
-    map(normalize_dataset, [haz_gen, nohaz_gen, haz_real, nohaz_real])
+    normalize_dataset_ = partial(normalize_dataset, copy=False)
+    map(normalize_dataset_, [haz_gen, nohaz_gen, haz_real, nohaz_real])
 
 
     ### CLASSIFY HAZARDOUS AND NONHAZARDOUS ASTEROIDS ###
