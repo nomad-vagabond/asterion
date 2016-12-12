@@ -225,6 +225,7 @@ def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None,
         # plt.axis([xx.min(), xx.max(), yy.min(), yy.max()])
     ax.set_xlim([xx.min(), xx.max()])
     ax.set_ylim([yy.min(), yy.max()])
+    lims = ([xx.min(), xx.max()], [yy.min(), yy.max()])
 
     ax.grid(True)
     # ax.imshow(zz,interpolation='gaussian')
@@ -243,7 +244,8 @@ def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None,
         # plt.colorbar(ax)
 
     plot_distribution(ax=ax, haz=haz, nohaz=nohaz, labels=labels, colors=colors,
-                      invertaxes=invertaxes, scales=scales, grid_color=grid_color)
+                      invertaxes=invertaxes, scales=scales, grid_color=grid_color,
+                      lims=lims)
 
     # plt.clim(-3.8, 0.3)
     plt.show()

@@ -107,28 +107,58 @@ def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False,
         plt.show()
     return dbsc
 
-def normalize_dataset(dataset, copy=True):
+def common_bounds(datasets):
+    ncols = [dataset.shape[1] for dataset in datasets]
+    if len(np.unique(ncols)) > 1:
+        raise ValueError("number of columns in datasets does not match")
+
+    ncol = ncols[0]
+    min_vals = [None]*ncol
+    max_vals = [None]*ncol
+    for dataset in datasets:
+        for col in range(ncol):
+            col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+            comp_min = (col_min, min_vals[col])
+            min_vals[col] = min(comp_min) if None not in comp_min else col_min
+            max_vals[col] = max(col_max, max_vals[col])
+    return (min_vals, max_vals)
+
+
+
+
+def normalize_dataset(dataset, copy=True, bounds=None):
     
     if copy:
         dataset_out = np.zeros_like(dataset)
     else:
         dataset_out = dataset
 
+    # check shape of bounds
+    # if bounds is not None:
+
     if len(dataset.shape) > 1:
         scales = []
         ncol = dataset.shape[1]    
         for col in range(ncol):
-            col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+            if bounds is None:
+                col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+            else:
+                col_min, col_max = bounds[0][col], bounds[1][col]
+
             scales.append((col_min, col_max))
             scale = col_max - col_min
             dataset_out[:, col] = (dataset[:, col] - col_min)/scale
         # return dataset_out
     else:
-        data_min, data_max = np.min(dataset), np.max(dataset)
-        scale = data_max - data_min
-        dataset_out = (dataset - data_min)/scale
-        scales = [data_min, data_max]
+        if bounds is None:
+            data_min, data_max = np.min(dataset), np.max(dataset)
+        else:
+            data_min, data_max = bounds[0][0], bounds[1][0]
 
+        scale = data_max - data_min
+        scales = [data_min, data_max]
+        dataset_out = (dataset - data_min)/scale
+        
     return dataset_out, scales
 
 def merge_clusters(data, labels, class_id, tail=False):
@@ -206,22 +236,29 @@ def classify_dbclusters(clusters, clf, haz_test, nohaz_test):
     # clf = KNeighborsClassifier(n_neighbors=int(0.01*len(data)))
     # clf = svm.SVC(C=1, gamma=100.) #kernel='poly'
     mixed_x, mixed_y = split_by_lastcol(mixed)
-    fitter = clf.fit(mixed_x, mixed_y)
+    # print "np.unique(mixed_y):", np.unique(mixed_y)
+    # print np.bincount(mixed_y.astype(int))
+    # print
+    clf = clf.fit(mixed_x, mixed_y)
 
-    ids = range(1, len(clusters)+1)
+    # ids = range(1, len(clusters)+1)
+    # print "ids:", ids
     predict_haz = clf.predict(haz_test)
     predict_nohaz = clf.predict(nohaz_test)
     # print "predict_haz:", predict_haz[:10]
     # print "predict_nohaz:", predict_nohaz[:10]
+    # print
+    # print "np.unique(predict_haz):", np.unique(predict_haz)
+    # print "np.unique(predict_nohaz):", np.unique(predict_nohaz)
 
     classnum_haz = np.bincount(predict_haz.astype(int))
     classnum_nohaz = np.bincount(predict_nohaz.astype(int))
-    # print "classnum_haz:", classnum_haz[:10]
-    # print "classnum_nohaz:", classnum_nohaz[:10]
+    # print "classnum_haz:", classnum_haz
+    # print "classnum_nohaz:", classnum_nohaz
 
     haz_prob = ([haz/float(haz + nohaz) 
                 for haz, nohaz in zip(classnum_haz, classnum_nohaz)])
-    print "haz_prob:", haz_prob
+    # print "haz_prob:", haz_prob
 
     # scales = [(min(data[:, 0]), max(data[:, 0])), (min(data[:, 1]), max(data[:, 1]))]
     # vd.plot_classifier(merged_px, clf, num=200, haz=haz_test, nohaz=nohaz_test, clustprobs=haz_prob, scales=scales)
