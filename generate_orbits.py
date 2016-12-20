@@ -193,11 +193,17 @@ class FitDist(object):
     def __init__(self, data, distfunc, n=50, verbose=False):
         self.distfunc = distfunc
         self.dmin, self.dmax = min(data), max(data)
-        pdf_sum = self._split(data, n)
+        n_ = self._extend(n)
+        pdf_sum = self._split(data, n_)
         cdf_max = self._fit()
         if verbose:
             print "Data cdf(xmax): %f \t" % pdf_sum, 
             print "%s_cdf(xmax): %f" % (distfunc.name, cdf_max) 
+
+    def _extend(self, n):
+        n_ = float(self.dmax) * n/(self.dmax - self.dmin)
+        return int(n_)
+
 
     def _split(self, data, num):
         """Split data values into bands"""
@@ -302,28 +308,39 @@ def get_subplotnum(n):
         a +=1
     return str(a) + str(b)
 
-def plot_param_distributions(distlist, xlabels, npoints=1000, figsize=(16, 10)):
+def plot_param_distributions(distlist, xlabels, npoints=1000, figsize=(16, 10), 
+                             original_bars=True, generated_bars=True):
     fig = plt.figure(figsize=figsize)
     subplot_base = get_subplotnum(len(distlist))
     subplots = [int(subplot_base + str(i+1)) for i in range(len(distlist))]
     for subplot, dist, xlabel in zip(subplots, distlist, xlabels):
+        # print "dist.bounds:", len(dist.bounds)
+        # print "dist min, max:", dist.dmin, dist.dmax
+        # print "dist.dmin:", dist.dmin
         rvs = dist.get_rvs(size=npoints)
+        # print "len(rvs):", len(rvs)
         ax = fig.add_subplot(subplot)
         # ax.grid(True)
         w = dist.widths[0]
+        # print 'w:', w
         # bounds = dist.bounds - w*0.25
-        ax.hist(rvs, bins=dist.bounds-w*0.25, normed=1, rwidth=0.5, 
-                color='lightsteelblue', lw=0, zorder=1) # 'aquamarine'  'lightblue'
-        ppx = np.linspace(0, dist.dmax, npoints)
+        if generated_bars:
+            ax.hist(rvs, bins=dist.bounds-w*0.25, normed=1, rwidth=0.5, 
+                    color='lightsteelblue', lw=0, zorder=1) # 'aquamarine'  'lightblue'
+        # ppx = np.linspace(0, dist.dmax, npoints)
+        ppx = np.linspace(dist.dmin, dist.dmax, npoints)
         ppy = dist.distfit.pdf(ppx)
-        ax.bar(dist.bounds[:-1]+w*0.5, dist.probs, w*0.5, lw=0, 
-               color='cornflowerblue', alpha=1, zorder=2) # 'dodgerblue'
+        if original_bars:
+            ax.bar(dist.bounds[:-1]+w*0.5, dist.probs, w*0.5, lw=0, 
+                   color='cornflowerblue', alpha=1, zorder=2) # 'dodgerblue'
         distcolor = 'chocolate' # 'greenyellow' # 'limegreen' # 'cornflowerblue'
         ax.plot(ppx, ppy, color=distcolor, ls='--', lw=2, zorder=3)
         ax.fill_between(ppx, 0, ppy, facecolor=distcolor, zorder=0, alpha=0.1)
         ax.set_xlabel(xlabel)
         ax.set_ylim(0, None)
-        ax.set_xlim(0, dist.dmax)
+        # ax.set_xlim(0, dist.dmax)
+        backstep = w*0.5 if dist.dmin > 0.2 else 0 # dirty fix for nice plotting
+        ax.set_xlim(dist.dmin-backstep, dist.dmax)
     plt.show()
 
 def get_param_distributions(data, names, statdists, n=50, verbose=False):
