@@ -107,24 +107,38 @@ def plot_kde(kde, levnum=4, numpoints=101, figsize=(10,10), scales=[(0,1), (0,1)
 
     return levels
 
-def linearcut_plot(p1, p2, haz_cut, nohaz_cut, figsize=(20,10)):
+def linearcut_plot(p1, p2, haz_cut, nohaz_cut, figsize=(20,10), 
+                   commonscales=True, invertaxes=[0,0], labels=None):
     px, py = np.array([p1, p2]).T
     fig = plt.figure(figsize=figsize)
+
+    if commonscales:
+        xvals = np.concatenate((haz_cut[..., 0], nohaz_cut[..., 0]))
+        yvals = np.concatenate((haz_cut[..., 1], nohaz_cut[..., 1]))
+        xlims = [min(xvals), max(xvals)]
+        ylims = [min(yvals), max(yvals)]
+        lims = [xlims, ylims]
+    else:
+        lims = None
     
     ax1 = fig.add_subplot(121)
-    xlim, ylim = [], []
-    _add_scatterplots(ax1, [nohaz_cut], ['blue'], xlim, ylim, [(0, 1), (0, 1)])
+    # xlim, ylim = [], []
+    # _add_scatterplots(ax1, [nohaz_cut], ['blue'], xlim, ylim, [(0, 1), (0, 1)])
+    plot_distribution(ax=ax1, haz=None, nohaz=nohaz_cut, labels=labels, 
+                      invertaxes=invertaxes, lims=lims)
     ax1.plot(px, py, lw=2, color='red')
-    ax1.set_xlim([min(xlim), max(xlim)])
-    ax1.set_ylim([min(ylim), max(ylim)])
+    # ax1.set_xlim([min(xlim), max(xlim)])
+    # ax1.set_ylim([min(ylim), max(ylim)])
     plt.grid(True)
     
     ax2 = fig.add_subplot(122)
-    xlim, ylim = [], []
-    _add_scatterplots(ax2, [haz_cut], ['orange'], xlim, ylim, [(0, 1), (0, 1)])
+    # xlim, ylim = [], []
+    # _add_scatterplots(ax2, [haz_cut], ['orange'], xlim, ylim, [(0, 1), (0, 1)])
+    plot_distribution(ax=ax2, haz=haz_cut, nohaz=None, labels=labels, 
+                      invertaxes=invertaxes, lims=lims)
     ax2.plot(px, py, lw=2, color='red')
-    ax2.set_xlim([min(xlim), max(xlim)])
-    ax2.set_ylim([min(ylim), max(ylim)])
+    # ax2.set_xlim([min(xlim), max(xlim)])
+    # ax2.set_ylim([min(ylim), max(ylim)])
     plt.grid(True)
     plt.show()
 
@@ -135,7 +149,8 @@ def display_param2d(cols, labels, datasets_, nplot=0, nrows=1, fig=None,
     # datasets_x = [datasets[i][:, :-1] for i in range(len(datasets_))]
     # haz_cut, nohaz_cut = datasets_x[:2]
 
-    haz_cut, nohaz_cut = ld.cut_2params(cols, datasets_)
+    # haz_cut, nohaz_cut = ld.cut_2params(cols, datasets_)
+    haz_cut, nohaz_cut = ld.cut_params(datasets_[0], datasets_[1], cols)
 
     if commonscales:
         xvals = np.concatenate((haz_cut[..., 0], nohaz_cut[..., 0]))

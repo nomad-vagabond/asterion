@@ -5,6 +5,9 @@ import math
 import read_database as rdb
 # from functools import partial
 import pickle 
+from copy import deepcopy
+import pandas as pd
+import warnings
 
 # sources = ['./asteroid_data/haz_rand_1e5.p', 
 #            './asteroid_data/nohaz_rand_1e5.p',
@@ -17,22 +20,125 @@ sources = ['./asteroid_data/haz_rand_2e5.p',
            './asteroid_data/nohaz_test.p']
 
 
+
+
+
+# def check_dblengths(func):
+#     def wrapped(haz, nohaz, *args):
+#         if len(haz) != len(nohaz):
+#             print len(haz)
+#             print len(nohaz)
+#             raise ValueError("lengths of datasets doesn't match")
+#         res = func(cols, haz, nohaz)
+#         return res
+#     return wrapped
+
+# @check_dblengths
+def append_phacol(hazarr, nohazarr):
+    "Appends PHA id column to the arrays of asteroid's orbital parameters."
+
+    num_haz, num_nohaz = len(hazarr), len(nohazarr)
+    phacol = np.reshape(np.ones(num_haz), (num_haz, 1))
+    nophacol = np.reshape(np.zeros(num_nohaz), (num_nohaz, 1))
+
+    # phacol = np.array([[1]*len(hazarr)]).T
+    # nophacol = np.array([[0]*len(nohazarr)]).T
+    # print "phacol:", phacol
+
+    # print "len(phacol):", len(phacol)
+    # print "len(hazarr):", len(hazarr)
+    # print
+    # print "len(nophacol):", len(nophacol)
+    # print "len(nohazarr):", len(nohazarr)
+
+    hazarr_ = np.append(hazarr, phacol, axis=1)
+    nohazarr_ = np.append(nohazarr, nophacol, axis=1)
+    return hazarr_, nohazarr_
+
+# @check_dblengths
+def cut_params(hazdf, nohazdf, cutcol):
+
+    data_arr = []
+    for dataframe in [hazdf, nohazdf]:
+        cutdata = dataframe[cutcol]
+        arr = cutdata.as_matrix()
+        data_arr.append(arr)
+    return data_arr
+
+def split_by_colval(dataset, colname, value):
+    dataset_left = dataset[dataset[colname] <= value]
+    dataset_right = dataset[dataset[colname] > value]
+    return dataset_left, dataset_right
+
+def add_doublemirror_column(dataset, colname, value):
+    # dataset_ = deepcopy(dataset)
+    left, right = split_by_colval(dataset, colname, value)
+    left_mir, right_mir = map(deepcopy, [left, right])
+    left_mir[colname] = value - left[colname]
+    right_mir[colname] = 3*value - right[colname]
+    half_mirror = pd.concat((left_mir, right_mir, dataset))
+    # half_mirror = pd.concat((left_mir, right_mir))
+
+    dataset_mirror = deepcopy(half_mirror)
+    # dataset_mirror = deepcopy(dataset)
+    dataset_mirror[colname] = value*2 - dataset_mirror[colname]
+    dataset_extended = pd.concat((half_mirror, dataset_mirror))
+    return dataset_extended
+    # return half_mirror
+
+def add_mirror_column(dataset, colname, value):
+    dataset_mirror = deepcopy(dataset)
+    dataset_mirror[colname] = value*2 - dataset[colname]
+    dataset_extended = pd.concat((dataset, dataset_mirror))
+    return dataset_extended
+
+def shift_and_mirror(dataset, colname, value):
+    left, right = split_by_colval(dataset, colname, value)
+
+    left_shift, right_shift = map(deepcopy, [left, right])
+    dataset_mirror = deepcopy(dataset)
+
+    left_shift[colname] = left_shift[colname] + value
+    right_shift[colname] = right_shift[colname] - value
+    dataset_mirror[colname] = value*2 - dataset_mirror[colname]
+    
+    dataset_extended = pd.concat((dataset, left_shift, right_shift, dataset_mirror))
+    return dataset_extended
+
 def learning_sets(haz, nohaz, cutcol):
     haz_cut, nohaz_cut = prepare_data(cutcol=cutcol, datasets=[haz, nohaz])
     merged = np.concatenate((haz_cut, nohaz_cut))
     data = np.random.permutation(merged)
     return split_by_lastcol(data)
 
+def mix_up(hazarr, nohazarr):
 
-def mix_up(haz, nohaz):
-    hazidcol = np.array([[1.0]*len(haz)]).T
-    nohazidcol = np.array([[0.0]*len(nohaz)]).T
-    haz_ = np.append(haz, hazidcol, axis=1)
-    nohaz_ = np.append(nohaz, nohazidcol, axis=1)
-    join_train = np.concatenate((haz_, nohaz_))
+    hazarr_, nohazarr_ = append_phacol(hazarr, nohazarr)
+
+    # hazidcol = np.array([[1.0]*len(hazarr)]).T
+    # nohazidcol = np.array([[0.0]*len(nohazarr)]).T
+    # hazarr_ = np.append(hazarr, hazidcol, axis=1)
+    # nohazarr_ = np.append(nohazarr, nohazidcol, axis=1)
+    join_train = np.concatenate((hazarr_, nohazarr_))
     data_train = np.random.permutation(join_train)
     xdata_train, ydata_train = split_by_lastcol(data_train)
     return xdata_train, ydata_train
+
+
+def common_scales(scale_sets):
+    scales = np.concatenate(scale_sets, axis=1)
+    scales_ = []
+    for col_minmax in scales:
+        min_val = min(col_minmax)
+        max_val = max(col_minmax)
+        scales_.append((min_val, max_val))
+    return scales_
+
+
+
+
+
+
 
 
 # sources = ['./asteroid_data/haz_rand_test.p', 
@@ -83,6 +189,7 @@ def prepare_data(cutcol=['a', 'e'], datasets=None):
     return data_arr
 
 def cut_2params(cols, datasets):
+    warnings.warn("this function is deprecated. use cut_params instead")
     datasets = prepare_data(cutcol=cols, datasets=datasets)
     datasets_x = [datasets[i][:, :-1] for i in range(len(datasets))]
     return datasets_x[:2]
@@ -113,6 +220,10 @@ def update_datasets():
         rdb.calc_orbc(dataset)
         rdb.calc_rclose(dataset)
     [rdb.dumpObject(obj, fname) for obj, fname in zip(loads, sources)]
+
+
+
+
 
 
 
