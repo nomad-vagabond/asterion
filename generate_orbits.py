@@ -4,6 +4,7 @@ import string
 # import os
 from math import pi, sqrt, sin, copysign, floor, ceil
 from functools import partial
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -308,8 +309,25 @@ def get_subplotnum(n):
         a +=1
     return str(a) + str(b)
 
+
+def cut_longtail(dist):
+    terminate_tail = 1e-4
+    pdf_dmax = dist.distfit.pdf(dist.dmax)
+    try: pdf_dmax_ = pdf_dmax[0]
+    except: pdf_dmax_ = pdf_dmax
+    if pdf_dmax_ < terminate_tail:
+        find_tail_end = lambda x: terminate_tail - dist.distfit.pdf(x)
+        x_end = so.fsolve(find_tail_end, dist.dmax*0.5)
+        return x_end
+    else:
+        return dist.dmax
+
+
+
+
+
 def plot_param_distributions(distlist, xlabels, npoints=1000, figsize=(16, 10), 
-                             original_bars=True, generated_bars=True):
+                             original_bars=True, generated_bars=True, cut_tail=False):
     fig = plt.figure(figsize=figsize)
     subplot_base = get_subplotnum(len(distlist))
     subplots = [int(subplot_base + str(i+1)) for i in range(len(distlist))]
@@ -340,7 +358,8 @@ def plot_param_distributions(distlist, xlabels, npoints=1000, figsize=(16, 10),
         ax.set_ylim(0, None)
         # ax.set_xlim(0, dist.dmax)
         backstep = w*0.5 if dist.dmin > 0.2 else 0 # dirty fix for nice plotting
-        ax.set_xlim(dist.dmin-backstep, dist.dmax)
+        dmax_ = cut_longtail(dist) if cut_tail else dist.dmax
+        ax.set_xlim(dist.dmin-backstep, dmax_)
     plt.show()
 
 def get_param_distributions(data, names, statdists, n=50, verbose=False):
@@ -386,6 +405,61 @@ def gen_rand_orbits(params, names, distlist, num=100):
     dataframe = pd.DataFrame(randdata, columns=names_extend)
     return dataframe
 
+
+def gen_orbits_inout(dist_common, dist_inner, dist_outer, bound=1.0, num=100):
+
+    rand_params = ({name: cdist.get_rvs(size=num)
+                            for name, cdist in dist_common.items()})
+
+    q_rand = rand_params['q']
+    num_in = len(q_rand[q_rand <= 1.0])
+    num_out = len(q_rand[q_rand > 1.0])
+
+    print "num_in:", num_in
+    print "num_out:", num_out
+
+    w_in = dist_inner['w'].get_rvs(size=num_in)
+    w_out = dist_outer['w'].get_rvs(size=num_out)
+
+    w_in = np.random.permutation(w_in)
+    w_out = np.random.permutation(w_out)
+
+    # print "len w_in:", len(w_in) #w_in.shape
+    # print "len w_out:", len(w_out) #w_out.shape
+
+    # rand_params['a'] = np.zeros(num)
+    rand_params['w'] = np.zeros(num)
+    i_in = i_out = 0
+    for i, q, e in zip(range(num), rand_params['q'], rand_params['e']):
+        # just in case to avoid possible surprises
+        if rand_params['e'][i] >= 1.0:
+            warnings.warn('too high eccentricity is found. value has been reset to 0.99')
+            rand_params['e'][i] = 0.99 
+
+        if q <= 1.0:
+            rand_params['w'][i] = w_in[i_in]
+            i_in += 1
+        else:
+            # try
+            rand_params['w'][i] = w_out[i_out]
+            i_out += 1
+    
+    rand_params['a'] = rand_params['q']/(1.0 - rand_params['e'])
+
+    # e_rand = rand_params['e']
+    # print "e_rand[e_rand >= 1]:", e_rand[e_rand >= 0.9]
+
+    # print len(rand_params['e']), type(rand_params['e'])
+    # print len(rand_params['i']), type(rand_params['i'])
+    # print len(rand_params['om']), type(rand_params['om'])
+    # print len(rand_params['q']), type(rand_params['q'])
+    # print len(rand_params['w']), type(rand_params['w'])
+    # print len(rand_params['a']), type(rand_params['a'])
+
+    names_extend = rand_params.keys()
+    randdata = np.array([rand_params[name] for name in names_extend]).T
+    dataframe = pd.DataFrame(randdata, columns=names_extend)
+    return dataframe
 
 
 if __name__ == '__main__':
