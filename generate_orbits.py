@@ -397,13 +397,36 @@ def gen_rand_params(params=None, distdict=None, num=1):
     #     print "rand_params:", rand_params
     return rand_params
 
-def gen_rand_orbits(params, names, distlist, num=100):
+def gen_rand_orbits(names, distlist, num=100):
     distdict = {name:dist for name, dist in zip(names, distlist)}
     rand_params = gen_rand_params(distdict=distdict, num=num)
     names_extend = rand_params.keys()
     randdata = np.array([rand_params[name] for name in names_extend]).T
     dataframe = pd.DataFrame(randdata, columns=names_extend)
     return dataframe
+
+
+def gen_orbits(distdict, num=100):
+    # distdict = {name:dist for name, dist in zip(names, distlist)}
+    # rand_params = gen_rand_params(distdict=distdict, num=num)
+    rand_params = ({name: contdist.get_rvs(size=num)
+                    for name, contdist in distdict.items()})
+
+    for i, e in enumerate(rand_params['e']):
+        if e >= 1.0:
+            warnings.warn('too high eccentricity is found. value has been reset to 0.99')
+            print 'too high eccentricity is found. value has been reset to 0.99'
+            rand_params['e'][i] = 0.99
+
+    # rand_params['a'] = rand_params['q']/(1.0 - rand_params['e'])
+    # rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
+
+    names_extend = rand_params.keys()
+    randdata = np.array([rand_params[name] for name in names_extend]).T
+    dataframe = pd.DataFrame(randdata, columns=names_extend)
+    return dataframe
+
+
 
 
 def gen_orbits_inout(dist_common, dist_inner, dist_outer, bound=1.0, num=100):
