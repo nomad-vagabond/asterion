@@ -208,7 +208,6 @@ class FitDist(object):
         n_ = float(self.dmax) * n/(self.dmax - self.dmin)
         return int(n_)
 
-
     def _split(self, data, num):
         """Split data values into bands"""
         bounds = np.linspace(0, self.dmax, num)
@@ -258,7 +257,6 @@ class FitDist(object):
 
         return cdf
 
-
     def _cut_tails(self, rvs):
 
         below_bounds = np.where(rvs < self.dmin)[0]
@@ -276,7 +274,6 @@ class FitDist(object):
         rvs_ = np.random.permutation(rvs_)
         
         return rvs_, len(rvs_add)
-
 
     def get_rvs(self, size=100):
         """Returns random variables using fitted continuous distribution"""
@@ -304,6 +301,73 @@ class FitDist(object):
         self.plot_distfit()
 
 
+def get_param_distributions(data, names, statdists, n=50, verbose=False):
+    contdists = [FitDist(data[[name]].as_matrix().ravel(), 
+                 dist, n=n, verbose=verbose) for name, dist in zip(names, statdists)]
+    return contdists
+
+def _rgen_orbits(distdict, num, rand_params=None, ri=0):
+    """
+    Generates arrays of random orbital parameters based on their distributions 
+    and recursively re-generates failed orbits (with negative eccentricity.)  
+    """
+
+    if rand_params is None:
+        rand_params = ({name: contdist.get_rvs(size=num)
+                        for name, contdist in distdict.items()})
+    else:
+        for name, contdist in distdict.items():
+            add_rvs = contdist.get_rvs(size=num)
+            rand_params[name] = np.concatenate((rand_params[name], add_rvs))
+
+    rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
+
+    e_rand = rand_params['e']
+    n_neg = len(e_rand[e_rand < 0])
+    # print "n_neg:", n_neg
+
+    if ri > 50: 
+        print "too high number of iterations has been reached:", ri
+        return None
+
+    elif n_neg > 0:
+        rand_params_ = {name:  list() for name in rand_params}
+        for i, e in enumerate(e_rand):
+            if e >= 1.0:
+                warnings.warn(msg_ehigh)
+                # print msg_ehigh
+                rand_params['e'][i] = 0.99
+            elif e > 0:
+                for name in rand_params:
+                    rand_params_[name].append(rand_params[name][i])
+        del rand_params
+        rand_params = ({name: np.asarray(rvs_list) 
+                        for name, rvs_list in rand_params_.items()})
+        del rand_params_
+        # print "len(rand_params['a']):", len(rand_params['a'])
+        ri += 1
+        rand_params = _rgen_orbits(distdict, n_neg, rand_params, ri)
+
+    return rand_params
+
+def gen_orbits(distdict, num=100):
+    """
+    Generates dataset of random orbits based on 1-D distributions 
+    of asteroid orbital parameters.
+    """
+    rand_params = _rgen_orbits(distdict, num)
+
+    if rand_params is not None:
+        names_extend = rand_params.keys()
+        randdata = np.array([rand_params[name] for name in names_extend]).T
+        dataframe = pd.DataFrame(randdata, columns=names_extend)
+        return dataframe
+
+    else: return None
+
+
+# Plotting functions
+
 def get_subplotnum(n):
     b = int(sqrt(n))
     a = int(float(n)/b)
@@ -311,7 +375,6 @@ def get_subplotnum(n):
     if m > 0:
         a +=1
     return str(a) + str(b)
-
 
 def cut_longtail(dist):
     terminate_tail = 1e-4
@@ -324,10 +387,6 @@ def cut_longtail(dist):
         return x_end
     else:
         return dist.dmax
-
-
-
-
 
 def plot_param_distributions(distlist, xlabels, npoints=1000, figsize=(16, 10), 
                              original_bars=True, generated_bars=True, cut_tail=False):
@@ -365,10 +424,8 @@ def plot_param_distributions(distlist, xlabels, npoints=1000, figsize=(16, 10),
         ax.set_xlim(dist.dmin-backstep, dmax_)
     plt.show()
 
-def get_param_distributions(data, names, statdists, n=50, verbose=False):
-    contdists = [FitDist(data[[name]].as_matrix().ravel(), 
-                 dist, n=n, verbose=verbose) for name, dist in zip(names, statdists)]
-    return contdists
+
+# Deprecated
 
 def get_param_bounds(data, names):
     # data_full = pd.concat([haz[names], nohaz[names]])
@@ -380,6 +437,10 @@ def get_param_bounds(data, names):
     return params
 
 def gen_rand_params(params=None, distdict=None, num=1):
+    """
+    Deprecated function for random orbit parameters generation. 
+    May produce orbits with negative eccentricity.
+    """
     if distdict is None:
         distdict = rdb.loadObject('./asteroid_data/param_dist.p')
 
@@ -401,6 +462,10 @@ def gen_rand_params(params=None, distdict=None, num=1):
     return rand_params
 
 def gen_rand_orbits(names, distlist, num=100):
+    """
+    Deprecated function for generation of random orbit dataset. 
+    May produce orbits with negative eccentricity.
+    """
     distdict = {name:dist for name, dist in zip(names, distlist)}
     rand_params = gen_rand_params(distdict=distdict, num=num)
     names_extend = rand_params.keys()
@@ -409,91 +474,7 @@ def gen_rand_orbits(names, distlist, num=100):
     return dataframe
 
 
-def rgen_orbits(distdict, num, rand_params=None, ri=0):
-    if rand_params is None:
-        rand_params = ({name: contdist.get_rvs(size=num)
-                        for name, contdist in distdict.items()})
-    else:
-        for name, contdist in distdict.items():
-            add_rvs = contdist.get_rvs(size=num)
-            rand_params[name] = np.concatenate((rand_params[name], add_rvs))
-
-    rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
-
-    e_rand = rand_params['e']
-    n_neg = len(e_rand[e_rand < 0])
-    print "n_neg:", n_neg
-    # if n_neg == 0:
-    #     print "good"
-    #     names_extend = rand_params.keys()
-    #     randdata = np.array([rand_params[name] for name in names_extend]).T
-    #     dataframe = pd.DataFrame(randdata, columns=names_extend)
-    #     print "len(dataframe):", len(dataframe)
-        # return dataframe
-    if ri > 50: 
-        print "too high number of iterations has been reached:", ri
-        return None
-    elif n_neg > 0:
-        rand_params_ = {name:  list() for name in rand_params}
-        for i, e in enumerate(e_rand):
-            if e >= 1.0:
-                # warnings.warn(msg_ehigh)
-                print msg_ehigh
-                rand_params['e'][i] = 0.99
-            elif e > 0:
-                for name in rand_params:
-                    rand_params_[name].append(rand_params[name][i])
-        del rand_params
-        rand_params = {name: np.asarray(rvs_list) for name, rvs_list in rand_params_.items()}
-        del rand_params_
-
-        print "len(rand_params['a']):", len(rand_params['a'])
-        
-        ri += 1
-        rand_params = rgen_orbits(distdict, n_neg, rand_params, ri)
-    # return dataframe
-    # else:
-    # if n_neg == 0:
-    return rand_params
-    # names_extend = rand_params.keys()
-    # randdata = np.array([rand_params[name] for name in names_extend]).T
-    # dataframe = pd.DataFrame(randdata, columns=names_extend)
-    # return dataframe
-
-
-
-
-
-
-def gen_orbits(distdict, num=100):
-    # distdict = {name:dist for name, dist in zip(names, distlist)}
-    # rand_params = gen_rand_params(distdict=distdict, num=num)
-    rand_params = ({name: contdist.get_rvs(size=num)
-                    for name, contdist in distdict.items()})
-
-    for i, e in enumerate(rand_params['e']):
-        if e >= 1.0:
-            warnings.warn('too high eccentricity is found. value has been reset to 0.99')
-            print 'too high eccentricity is found. value has been reset to 0.99'
-            rand_params['e'][i] = 0.99
-
-    # rand_params['a'] = rand_params['q']/(1.0 - rand_params['e'])
-    rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
-
-    e_rand = rand_params['e']
-
-    e_rand_neg = e_rand[e_rand < 0]
-
-    re
-
-
-    names_extend = rand_params.keys()
-    randdata = np.array([rand_params[name] for name in names_extend]).T
-    dataframe = pd.DataFrame(randdata, columns=names_extend)
-    return dataframe
-
-
-
+# Experimental
 
 def gen_orbits_inout(dist_common, dist_inner, dist_outer, bound=1.0, num=100):
 
