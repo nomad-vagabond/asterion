@@ -23,6 +23,9 @@ G = 6.67384e-11
 M = 1.989e30
 AU = 149597870700
 
+msg_ehigh = 'too high eccentricity is found. value has been reset to 0.99'
+
+
 
 class GaussianKDE(object):
     """1D Wrapper over scipy's gaussian_kde"""
@@ -406,6 +409,62 @@ def gen_rand_orbits(names, distlist, num=100):
     return dataframe
 
 
+def rgen_orbits(distdict, num, rand_params=None, ri=0):
+    if rand_params is None:
+        rand_params = ({name: contdist.get_rvs(size=num)
+                        for name, contdist in distdict.items()})
+    else:
+        for name, contdist in distdict.items():
+            add_rvs = contdist.get_rvs(size=num)
+            rand_params[name] = np.concatenate((rand_params[name], add_rvs))
+
+    rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
+
+    e_rand = rand_params['e']
+    n_neg = len(e_rand[e_rand < 0])
+    print "n_neg:", n_neg
+    # if n_neg == 0:
+    #     print "good"
+    #     names_extend = rand_params.keys()
+    #     randdata = np.array([rand_params[name] for name in names_extend]).T
+    #     dataframe = pd.DataFrame(randdata, columns=names_extend)
+    #     print "len(dataframe):", len(dataframe)
+        # return dataframe
+    if ri > 50: 
+        print "too high number of iterations has been reached:", ri
+        return None
+    elif n_neg > 0:
+        rand_params_ = {name:  list() for name in rand_params}
+        for i, e in enumerate(e_rand):
+            if e >= 1.0:
+                # warnings.warn(msg_ehigh)
+                print msg_ehigh
+                rand_params['e'][i] = 0.99
+            elif e > 0:
+                for name in rand_params:
+                    rand_params_[name].append(rand_params[name][i])
+        del rand_params
+        rand_params = {name: np.asarray(rvs_list) for name, rvs_list in rand_params_.items()}
+        del rand_params_
+
+        print "len(rand_params['a']):", len(rand_params['a'])
+        
+        ri += 1
+        rand_params = rgen_orbits(distdict, n_neg, rand_params, ri)
+    # return dataframe
+    # else:
+    # if n_neg == 0:
+    return rand_params
+    # names_extend = rand_params.keys()
+    # randdata = np.array([rand_params[name] for name in names_extend]).T
+    # dataframe = pd.DataFrame(randdata, columns=names_extend)
+    # return dataframe
+
+
+
+
+
+
 def gen_orbits(distdict, num=100):
     # distdict = {name:dist for name, dist in zip(names, distlist)}
     # rand_params = gen_rand_params(distdict=distdict, num=num)
@@ -419,7 +478,14 @@ def gen_orbits(distdict, num=100):
             rand_params['e'][i] = 0.99
 
     # rand_params['a'] = rand_params['q']/(1.0 - rand_params['e'])
-    # rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
+    rand_params['e'] = (rand_params['a'] - rand_params['q'])/rand_params['a']
+
+    e_rand = rand_params['e']
+
+    e_rand_neg = e_rand[e_rand < 0]
+
+    re
+
 
     names_extend = rand_params.keys()
     randdata = np.array([rand_params[name] for name in names_extend]).T
