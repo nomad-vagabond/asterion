@@ -21,19 +21,37 @@ sources = ['./asteroid_data/haz_rand_2e5.p',
 
 
 
+def dmirror_clusters(clusters_, colnum, value):
+    # clusters_cut = [c[:, :-1] for c in clusters]
+    clusters = deepcopy(clusters_)
+    clusters_dm = []
+    for clust in clusters:
+        # clust_cut, clust_id = clust[:, :-1], clust[:, -1]
+        mircol = clust[:, colnum]
+        all_inds = set(range(len(clust)))
+        left_inds = np.where(mircol < value)[0]
+        right_inds = list(all_inds - set(left_inds))
+        right_inds = np.array(right_inds, dtype=int)
 
+        # print 
 
-# def check_dblengths(func):
-#     def wrapped(haz, nohaz, *args):
-#         if len(haz) != len(nohaz):
-#             print len(haz)
-#             print len(nohaz)
-#             raise ValueError("lengths of datasets doesn't match")
-#         res = func(cols, haz, nohaz)
-#         return res
-#     return wrapped
+        mircol[left_inds] = value - mircol[left_inds]
+        mircol[right_inds] = 3*value - mircol[right_inds]
 
-# @check_dblengths
+        clust_m = deepcopy(clust)
+        clust_m[:, colnum] = mircol
+
+        clust_e = np.concatenate((clust, clust_m))
+        mircol2 = clust_e[:, colnum]
+        mircol2 = value*2 - mircol2
+
+        clust_dm = deepcopy(clust_e)
+        clust_dm[:, colnum] = mircol2
+
+        clust_e2 = np.concatenate((clust_e, clust_dm))
+        clusters_dm.append(clust_e2)
+    return clusters_dm
+
 def append_phacol(hazarr, nohazarr):
     "Appends PHA id column to the arrays of asteroid's orbital parameters."
 
@@ -55,7 +73,6 @@ def append_phacol(hazarr, nohazarr):
     nohazarr_ = np.append(nohazarr, nophacol, axis=1)
     return hazarr_, nohazarr_
 
-# @check_dblengths
 def cut_params(hazdf, nohazdf, cutcol):
 
     data_arr = []
@@ -139,7 +156,15 @@ def common_scales(scale_sets):
 
 
 
-
+# def check_dblengths(func):
+#     def wrapped(haz, nohaz, *args):
+#         if len(haz) != len(nohaz):
+#             print len(haz)
+#             print len(nohaz)
+#             raise ValueError("lengths of datasets doesn't match")
+#         res = func(cols, haz, nohaz)
+#         return res
+#     return wrapped
 
 # sources = ['./asteroid_data/haz_rand_test.p', 
 #            './asteroid_data/nohaz_rand_test.p']
