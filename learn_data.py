@@ -20,6 +20,19 @@ sources = ['./asteroid_data/haz_rand_2e5.p',
            './asteroid_data/nohaz_test.p']
 
 
+def ncut_params(hazdf, nohazdf, cutcol, bounds=None):
+    import asterion_learn as al
+    haz_cut, nohaz_cut = cut_params(hazdf, nohazdf, cutcol)
+    if bounds is None:
+        bounds = al.common_bounds([haz_cut, nohaz_cut])
+    haz_cut, haz_sc = al.normalize_dataset(haz_cut, bounds=bounds)
+    nohaz_cut, nohaz_sc = al.normalize_dataset(nohaz_cut, bounds=bounds)
+    scales = common_scales([haz_sc, nohaz_sc])
+    return haz_cut, nohaz_cut, scales
+
+
+
+
 
 def dmirror_clusters(clusters_, colnum, value):
     # clusters_cut = [c[:, :-1] for c in clusters]
