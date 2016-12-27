@@ -85,14 +85,27 @@ def get_neo(database, subset):
     database_clear = database_neo.dropna(subset=subset)
     return database_clear, len(database_clear)
 
-def get_apollos(database):
-    db1 = database[database.a > 1.0]
-    db2 = db1[db1.q < 1.017]
+def get_atiras(database):
+    db1 = database[database.a <= 1.0]
+    # db1['Q'] = db1.a * 2 - db1.q
+    # db2 = db1[db1.Q <= 0.983]
+    Q = db1.a * 2 - db1.q
+    Q_fit = Q[Q <= 0.983]
+    db2 = db1.loc[Q_fit.index]
     return db2, len(db2)
 
 def get_atens(database):
-    db1 = database[database.a < 1.0]
-    db2 = db1[db1.q > 0.983]
+    db1 = database[database.a <= 1.0]
+    # db1['Q'] = db1.a * 2 - db1.q
+    # db2 = db1[db1.Q >= 0.983]
+    Q = db1.a * 2 - db1.q
+    Q_fit = Q[Q >= 0.983]
+    db2 = db1.loc[Q_fit.index]
+    return db2, len(db2)
+
+def get_apollos(database):
+    db1 = database[database.a >= 1.0]
+    db2 = db1[db1.q <= 1.017]
     return db2, len(db2)
 
 def get_amors(database):
