@@ -26,8 +26,64 @@ from sklearn.cluster import DBSCAN
 # import pickle
 import visualize_data as vd
 from learn_data import get_learndata, prepare_data, split_by_lastcol
+import learn_data as ld
 from read_database import loadObject, dumpObject
+reload(ld)
 
+
+def split_by_clf(clf, cutcol, haz_train, nohaz_train, 
+                 haz_test=None, nohaz_test=None, verbose=True):
+
+    
+    haz_test = deepcopy(haz_train) if haz_test is None else haz_test
+    nohaz_test = deepcopy(nohaz_train) if nohaz_test is None else nohaz_test
+    
+    haz_train_cut, nohaz_train_cut = ld.cut_params(haz_train, nohaz_train, cutcol)
+    haz_test_cut, nohaz_test_cut = ld.cut_params(haz_test, nohaz_test, cutcol)
+
+    bounds = ld.common_bounds([haz_train_cut, nohaz_train_cut, 
+                               haz_test_cut, nohaz_test_cut])
+    
+    haz_train_cut, haz_train_sc = ld.normalize_dataset(haz_train_cut, bounds)
+    nohaz_train_cut, nohaz_train_sc = ld.normalize_dataset(nohaz_train_cut, bounds)
+    haz_test_cut, haz_test_sc = ld.normalize_dataset(haz_test_cut, bounds)
+    nohaz_test_cut, nohaz_test_sc = ld.normalize_dataset(nohaz_test_cut, bounds)
+    scales = ld.common_scales([haz_train_sc, nohaz_train_sc, 
+                               haz_test_sc, nohaz_test_sc])
+    
+    xtrain, ytrain = ld.mix_up(haz_train_cut, nohaz_train_cut)
+    clf = clf.fit(xtrain, ytrain)
+    
+    haz_clf = clf.predict(haz_test_cut)
+    nohaz_clf = clf.predict(nohaz_test_cut)
+    
+    haz_1 = np.where(haz_clf == 1)[0]
+    nohaz_1 = np.where(nohaz_clf == 1)[0]
+    haz_0 = np.where(haz_clf == 0)[0]
+    nohaz_0 = np.where(nohaz_clf == 0)[0]
+    
+    haz_test_1 = haz_test.iloc[haz_1]
+    nohaz_test_1 = nohaz_test.iloc[nohaz_1]
+    haz_test_0 = haz_test.iloc[haz_0]
+    nohaz_test_0 = nohaz_test.iloc[nohaz_0]
+    
+    floatlen = lambda db: float(len(db))
+    haz_test_1num, nohaz_test_1num = map(floatlen, [haz_test_1, nohaz_test_1])
+    haz_test_0num, nohaz_test_0num = map(floatlen, [haz_test_0, nohaz_test_0])
+    
+    haz_purity = haz_test_1num/(haz_test_1num + nohaz_test_1num)
+    nohaz_purity = nohaz_test_0num/(haz_test_0num + nohaz_test_0num)
+    
+    if verbose:
+        print "purity of PHA region:", haz_purity
+        print "purity of non-PHA region:", nohaz_purity
+        
+    haz_concat = pd.concat((haz_test_1, nohaz_test_1))
+    nohaz_concat = pd.concat((haz_test_0, nohaz_test_0))
+
+#     return haz_concat, nohaz_concat
+    return (haz_test_1, nohaz_test_1), (haz_test_0, nohaz_test_0), scales
+        
 
 # def get_cmap(n):
 #     color_norm  = colors.Normalize(vmin=0, vmax=n-1)
@@ -50,8 +106,8 @@ def classify_hazardous(datasets, clf, crossval=False):
             xtrain, ytrain = xdata[tr], ydata[tr]
             xtest, ytest = xdata[ts], ydata[ts]
             # map(normalize_dataset, [xtrain, xtest])
-            xtrain, s_ = normalize_dataset(xtrain)
-            xtest, s_ = normalize_dataset(xtest)
+            xtrain, s_ = ld.normalize_dataset(xtrain)
+            xtest, s_ = ld.normalize_dataset(xtest)
             fit_predict(xtrain, ytrain, xtest, ytest, clf)
         print "done."
 
@@ -78,7 +134,7 @@ def fit_predict(xtrain, ytrain, xtest, ytest, clf):
 
 def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False, 
                      figsize=(10, 10)):
-    data_x_norm, scales = normalize_dataset(data_x)
+    data_x_norm, scales = ld.normalize_dataset(data_x)
     dbsc = DBSCAN(eps=eps, min_samples=min_samples).fit(data_x_norm)  # 0.015  100  | 0.021  160
     labels = dbsc.labels_
     unique_labels = np.unique(labels)
@@ -107,59 +163,56 @@ def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False,
         plt.show()
     return dbsc
 
-def common_bounds(datasets):
-    ncols = [dataset.shape[1] for dataset in datasets]
-    if len(np.unique(ncols)) > 1:
-        raise ValueError("number of columns in datasets does not match")
+# def common_bounds(datasets):
+#     ncols = [dataset.shape[1] for dataset in datasets]
+#     if len(np.unique(ncols)) > 1:
+#         raise ValueError("number of columns in datasets does not match")
 
-    ncol = ncols[0]
-    min_vals = [None]*ncol
-    max_vals = [None]*ncol
-    for dataset in datasets:
-        for col in range(ncol):
-            col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
-            comp_min = (col_min, min_vals[col])
-            min_vals[col] = min(comp_min) if None not in comp_min else col_min
-            max_vals[col] = max(col_max, max_vals[col])
-    return (min_vals, max_vals)
+#     ncol = ncols[0]
+#     min_vals = [None]*ncol
+#     max_vals = [None]*ncol
+#     for dataset in datasets:
+#         for col in range(ncol):
+#             col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+#             comp_min = (col_min, min_vals[col])
+#             min_vals[col] = min(comp_min) if None not in comp_min else col_min
+#             max_vals[col] = max(col_max, max_vals[col])
+#     return (min_vals, max_vals)
 
-
-
-
-def normalize_dataset(dataset, copy=True, bounds=None):
+# def normalize_dataset(dataset, copy=True, bounds=None):
     
-    if copy:
-        dataset_out = np.zeros_like(dataset)
-    else:
-        dataset_out = dataset
+#     if copy:
+#         dataset_out = np.zeros_like(dataset)
+#     else:
+#         dataset_out = dataset
 
-    # check shape of bounds
-    # if bounds is not None:
+#     # check shape of bounds
+#     # if bounds is not None:
 
-    if len(dataset.shape) > 1:
-        scales = []
-        ncol = dataset.shape[1]    
-        for col in range(ncol):
-            if bounds is None:
-                col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
-            else:
-                col_min, col_max = bounds[0][col], bounds[1][col]
+#     if len(dataset.shape) > 1:
+#         scales = []
+#         ncol = dataset.shape[1]    
+#         for col in range(ncol):
+#             if bounds is None:
+#                 col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+#             else:
+#                 col_min, col_max = bounds[0][col], bounds[1][col]
 
-            scales.append((col_min, col_max))
-            scale = col_max - col_min
-            dataset_out[:, col] = (dataset[:, col] - col_min)/scale
-        # return dataset_out
-    else:
-        if bounds is None:
-            data_min, data_max = np.min(dataset), np.max(dataset)
-        else:
-            data_min, data_max = bounds[0][0], bounds[1][0]
+#             scales.append((col_min, col_max))
+#             scale = col_max - col_min
+#             dataset_out[:, col] = (dataset[:, col] - col_min)/scale
+#         # return dataset_out
+#     else:
+#         if bounds is None:
+#             data_min, data_max = np.min(dataset), np.max(dataset)
+#         else:
+#             data_min, data_max = bounds[0][0], bounds[1][0]
 
-        scale = data_max - data_min
-        scales = [data_min, data_max]
-        dataset_out = (dataset - data_min)/scale
+#         scale = data_max - data_min
+#         scales = [data_min, data_max]
+#         dataset_out = (dataset - data_min)/scale
         
-    return dataset_out, scales
+#     return dataset_out, scales
 
 def merge_clusters(data, labels, class_id, tail=False):
     """Merges all density-based clusters and add class ID column"""
@@ -367,26 +420,26 @@ def split_minigroups(subgroup, levels):
     return minigroups_inds
 
 
-def linearcut_rotate(p1, p2, haz_cut, nohaz_cut):
-    # a = (p1[1] - p2[1]) / (p1[0] - p2[0])
-    # b = p2[1] - a * p2[0]
+# def linearcut_rotate(p1, p2, haz_cut, nohaz_cut):
+#     # a = (p1[1] - p2[1]) / (p1[0] - p2[0])
+#     # b = p2[1] - a * p2[0]
     
-    p1a, p2a = np.asarray(p1), np.asarray(p2)
-    v = p2a - p1a
-    v0 = -v/np.linalg.norm(v)
+#     p1a, p2a = np.asarray(p1), np.asarray(p2)
+#     v = p2a - p1a
+#     v0 = -v/np.linalg.norm(v)
     
-    x0 = np.array([0,1])
-    cosphi = np.dot(v0, x0)
-    sinphi = math.sqrt(1 - cosphi**2)
-    MR = np.array([[cosphi, -sinphi], [sinphi, cosphi]])
+#     x0 = np.array([0,1])
+#     cosphi = np.dot(v0, x0)
+#     sinphi = math.sqrt(1 - cosphi**2)
+#     MR = np.array([[cosphi, -sinphi], [sinphi, cosphi]])
     
-    haz_cut_rot = np.asarray([np.dot(hz, MR) for hz in haz_cut])
-    nohaz_cut_rot = np.asarray([np.dot(nhz, MR) for nhz in nohaz_cut])
+#     haz_cut_rot = np.asarray([np.dot(hz, MR) for hz in haz_cut])
+#     nohaz_cut_rot = np.asarray([np.dot(nhz, MR) for nhz in nohaz_cut])
     
-    p1_rot = np.dot(p1a, MR)
-    p2_rot = np.dot(p2a, MR)
+#     p1_rot = np.dot(p1a, MR)
+#     p2_rot = np.dot(p2a, MR)
     
-    return p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot
+#     return p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot
 
 
 def normgrid_kde(kde, num=101, levnum=4, scales=[(0,1), (0,1)]):
@@ -426,7 +479,7 @@ if __name__ == '__main__':
     ### NORMALIZE DATASET'S DIMENSIONS ###
     x, y = haz_gen[:, 0], haz_gen[:, 1]
     scales = [(x.min(), x.max()),  (y.min(), y.max())]
-    normalize_dataset_ = partial(normalize_dataset, copy=False)
+    normalize_dataset_ = partial(ld.normalize_dataset, copy=False)
     map(normalize_dataset_, [haz_gen, nohaz_gen, haz_real, nohaz_real])
 
 

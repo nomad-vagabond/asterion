@@ -25,13 +25,46 @@ def ncut_params(hazdf, nohazdf, cutcol, bounds=None):
     haz_cut, nohaz_cut = cut_params(hazdf, nohazdf, cutcol)
     if bounds is None:
         bounds = al.common_bounds([haz_cut, nohaz_cut])
-    haz_cut, haz_sc = al.normalize_dataset(haz_cut, bounds=bounds)
-    nohaz_cut, nohaz_sc = al.normalize_dataset(nohaz_cut, bounds=bounds)
+    haz_cut, haz_sc = normalize_dataset(haz_cut, bounds=bounds)
+    nohaz_cut, nohaz_sc = normalize_dataset(nohaz_cut, bounds=bounds)
     scales = common_scales([haz_sc, nohaz_sc])
     return haz_cut, nohaz_cut, scales
 
 
+def normalize_dataset(dataset, bounds=None, copy=True):
+    
+    if copy:
+        dataset_out = np.zeros_like(dataset)
+    else:
+        dataset_out = dataset
 
+    # check shape of bounds
+    # if bounds is not None:
+
+    if len(dataset.shape) > 1:
+        scales = []
+        ncol = dataset.shape[1]    
+        for col in range(ncol):
+            if bounds is None:
+                col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+            else:
+                col_min, col_max = bounds[0][col], bounds[1][col]
+
+            scales.append((col_min, col_max))
+            scale = col_max - col_min
+            dataset_out[:, col] = (dataset[:, col] - col_min)/scale
+        # return dataset_out
+    else:
+        if bounds is None:
+            data_min, data_max = np.min(dataset), np.max(dataset)
+        else:
+            data_min, data_max = bounds[0][0], bounds[1][0]
+
+        scale = data_max - data_min
+        scales = [data_min, data_max]
+        dataset_out = (dataset - data_min)/scale
+        
+    return dataset_out, scales
 
 
 def dmirror_clusters(clusters_, colnum, value):
@@ -164,6 +197,79 @@ def common_scales(scale_sets):
         scales_.append((min_val, max_val))
     return scales_
 
+
+def common_bounds(datasets):
+    ncols = [dataset.shape[1] for dataset in datasets]
+    if len(np.unique(ncols)) > 1:
+        raise ValueError("number of columns in datasets does not match")
+
+    ncol = ncols[0]
+    min_vals = [None]*ncol
+    max_vals = [None]*ncol
+    for dataset in datasets:
+        for col in range(ncol):
+            col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
+            comp_min = (col_min, min_vals[col])
+            min_vals[col] = min(comp_min) if None not in comp_min else col_min
+            max_vals[col] = max(col_max, max_vals[col])
+    return (min_vals, max_vals)
+
+
+def align_vert(p1, p2, haz_cut, nohaz_cut):
+    # a = (p1[1] - p2[1]) / (p1[0] - p2[0])
+    # b = p2[1] - a * p2[0]
+    
+    p1a, p2a = np.asarray(p1), np.asarray(p2)
+    v = p2a - p1a
+    v0 = -v/np.linalg.norm(v)
+    
+    x0 = np.array([0,1])
+    cosphi = np.dot(v0, x0)
+    sinphi = math.sqrt(1 - cosphi**2)
+    MR = np.array([[cosphi, -sinphi], [sinphi, cosphi]])
+    
+    haz_cut_rot = np.asarray([np.dot(hz, MR) for hz in haz_cut])
+    nohaz_cut_rot = np.asarray([np.dot(nhz, MR) for nhz in nohaz_cut])
+    
+    p1_rot = np.dot(p1a, MR)
+    p2_rot = np.dot(p2a, MR)
+    
+    return p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot
+
+
+def split_by_line(hazdb, nohazdb, line, cols, verbose=True):
+    """Splits hazardous and non-hazardous datasets by a line"""
+
+    haz_cut, nohaz_cut = cut_params(hazdb, nohazdb, cols)
+    p1, p2 = line
+    rotated = align_vert(p1, p2, haz_cut, nohaz_cut)
+    p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot = rotated
+    split = p1_rot[0]
+
+    haz_right = np.where(haz_cut_rot[:, 0] > split)[0]
+    nohaz_right = np.where(nohaz_cut_rot[:, 0] > split)[0]
+
+    haz_left = np.where(haz_cut_rot[:, 0] <= split)[0]
+    nohaz_left = np.where(nohaz_cut_rot[:, 0] <= split)[0]
+
+    hazdb_right = hazdb.iloc[haz_right]
+    nohazdb_right = nohazdb.iloc[nohaz_right]
+
+    hazdb_left = hazdb.iloc[haz_left]
+    nohazdb_left = nohazdb.iloc[nohaz_left]
+
+    floatlen = lambda db: float(len(db))
+    haz_left_num, nohaz_left_num = map(floatlen, [haz_left, nohaz_left])
+    haz_right_num, nohaz_right_num = map(floatlen, [haz_right, nohaz_right])
+    
+    left_purity = haz_left_num/(haz_left_num + nohaz_left_num)
+    right_purity = haz_right_num/(haz_right_num + nohaz_right_num)
+    
+    if verbose:
+        print "PHA purity of the left subset:", left_purity
+        print "PHA purity of the right subset:", right_purity
+
+    return (hazdb_left, nohazdb_left), (hazdb_right, nohazdb_right)
 
 
 
