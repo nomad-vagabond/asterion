@@ -5,6 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.ticker as ticker
+from matplotlib import cm
 
 import learn_data as ld
 # from string import split
@@ -63,28 +64,28 @@ def plot_onegroup(dataset, clf, lev, levels, labels=None, fig=None, subplot=111,
 
 
 
-def plot_minigroups():
+# def plot_minigroups():
 
-    ax1 = fig.add_subplot(*sp1)
-    ax1 = fig.add_subplot(131)
-    xx, yy = vd._get_datagrid(xtrain_mg11[:,0], xtrain_mg11[:,1], num)
-    z = clf11.predict(np.c_[xx.ravel(), yy.ravel()])
-    # print np.unique(z)
-    z_hazind = np.where(z == 1.0)
-    z[z_hazind] = -4.
-    # z = z
-    # levels = len(np.unique(z))
-    # zz = (z-0.5).reshape(xx.shape)
-    zz = z.reshape(xx.shape)
+#     ax1 = fig.add_subplot(*sp1)
+#     ax1 = fig.add_subplot(131)
+#     xx, yy = vd._get_datagrid(xtrain_mg11[:,0], xtrain_mg11[:,1], num)
+#     z = clf11.predict(np.c_[xx.ravel(), yy.ravel()])
+#     # print np.unique(z)
+#     z_hazind = np.where(z == 1.0)
+#     z[z_hazind] = -4.
+#     # z = z
+#     # levels = len(np.unique(z))
+#     # zz = (z-0.5).reshape(xx.shape)
+#     zz = z.reshape(xx.shape)
 
-    # ax1.contourf(xx, yy, zz, cmap=cmap, norm=mpl.colors.Normalize(vmin=-3.8, vmax=0.0))
-    ax1.pcolor(xx, yy, zz, cmap=cmap, vmin=-4, vmax=0.0)
-    ax1.set_xlim([xx.min(), xx.max()])
-    ax1.set_ylim([yy.min(), yy.max()])
-    ax1.set_xlabel(labels[0])
-    ax1.set_ylabel(labels[1])
-    # plt.clim(-3.8,0.0)
-    ax1.grid(True)
+#     # ax1.contourf(xx, yy, zz, cmap=cmap, norm=mpl.colors.Normalize(vmin=-3.8, vmax=0.0))
+#     ax1.pcolor(xx, yy, zz, cmap=cmap, vmin=-4, vmax=0.0)
+#     ax1.set_xlim([xx.min(), xx.max()])
+#     ax1.set_ylim([yy.min(), yy.max()])
+#     ax1.set_xlabel(labels[0])
+#     ax1.set_ylabel(labels[1])
+#     # plt.clim(-3.8,0.0)
+#     ax1.grid(True)
 
 
 
@@ -416,6 +417,120 @@ def get_colorlist(n, cmap='winter_r'):
     scalar_map = mpl.cm.ScalarMappable(norm=color_norm, cmap=cmap) 
     colors_list = [scalar_map.to_rgba(index) for index in range(n)]
     return colors_list
+
+def plot_scatter_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
+                    clustprobs=None, rescale=True, scales=[(0,1), (0,1)],
+                    invertaxes=[0, 0], figsize=(10,10), cmap='winter_r', 
+                    colors=["yellow","darkblue"], norm_color=None, subgroups=None,
+                    grid_color=None):
+    
+    fig = plt.figure(figsize=figsize)
+    # ax = fig.add_subplot(111)
+    ax = fig.add_subplot(111, projection='3d')
+
+    if plotbounds is not None:
+        xb, yb, zb = plotbounds
+    else:
+        xb = yb = zb = [0.0, 1.0]
+
+    xs = np.array([])
+    ys = np.array([])
+    zs = np.array([])
+
+    zlayers = np.linspace(zb[0], zb[1], num)
+    for zi in zlayers:
+        xx, yy = _get_datagrid(xb, yb, num)
+        x_ = xx.ravel()
+        y_ = yy.ravel()
+        z_ = np.empty(len(y_))
+        # z_ = np.full((len(y_),), zi)
+        z_.fill(zi)
+
+        c = clf.predict(np.c_[x_, y_, z_])
+        c1i = np.where(c==1)
+        
+        x1 = x_[c1i]
+        y1 = y_[c1i]
+        z1 = z_[c1i]
+
+        xs = np.concatenate((xs, x1))
+        ys = np.concatenate((ys, y1))
+        zs = np.concatenate((zs, z1))
+
+    ax.scatter(xs, ys, zs, c='r', marker='o', lw=0, alpha=1.0, s=10)
+    # plt.clim(-3.8, 0.3)
+    plt.show()
+
+def plot_contour_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
+                    clustprobs=None, rescale=True, scales=[(0,1), (0,1)],
+                    invertaxes=[0, 0], figsize=(10,10), cmap='winter_r', 
+                    colors=["yellow","darkblue"], norm_color=None, subgroups=None,
+                    grid_color=None):
+    
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+    cbax = fig.add_axes(_cbar_size)
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax = Axes3D(fig)
+
+    if plotbounds is not None:
+        xb, yb, zb = plotbounds
+    else:
+        xb = yb = zb = [0.0, 1.0]
+
+    xs = np.array([])
+    ys = np.array([])
+    zs = np.array([])
+
+    xx, yy = _get_datagrid(xb, yb, num)
+    # print "xx.shape:", xx.shape
+    x_ = xx.ravel()
+    y_ = yy.ravel()
+
+    z0 = np.zeros(len(x_))
+    # zz = z0.reshape(xx.shape)
+    # z1 = z0
+
+    zlayers = np.linspace(zb[0], zb[1], num)
+    for zi in zlayers:
+        z_ = np.empty(len(y_))
+        # z_ = np.full((len(y_),), zi)
+        z_.fill(zi)
+
+        c = clf.predict(np.c_[x_, y_, z_])
+        c1i = np.where(c==1)
+        c0i = np.where(c==0)
+
+        z_[c0i] = z_[c0i] - 2.0
+        z_ = np.maximum(z_, z0)
+        z0 = z_
+        
+    # if rescale:
+    #     xx, yy = _get_datagrid(scales[0], scales[1], num)
+
+    # ax.scatter(xs, ys, zs, c='r', marker='o', lw=0, alpha=1.0, s=10)
+    # ax.scatter(x_, y_, z_, c='r', marker='o', lw=0, alpha=1.0, s=10)
+    zz = z_.reshape(xx.shape)
+    # ax.plot_surface(xx, yy, zz)
+    # ax.plot_trisurf(x_, y_, z_, cmap=cm.jet, linewidth=0)
+    ax.contourf(xx, yy, zz, cmap=cm.jet) # cm.jet
+    cb_title = "Perihelion distance"
+    _add_colorbar(cbax, len(np.unique(z_)), cmap, cb_title)
+    # plt.clim(-3.8, 0.3)
+    plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def get_ellipse(a, e, npoints = 50):
     f = a*e
