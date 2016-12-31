@@ -28,8 +28,47 @@ import visualize_data as vd
 from learn_data import get_learndata, prepare_data, split_by_lastcol
 import learn_data as ld
 from read_database import loadObject, dumpObject
-reload(ld)
+# reload(ld)
 
+
+def sgmask_clf(hazdf, nohazdf, hazdf_rest, nohazdf_rest, clf, cutcol):
+
+    df = pd.concat((hazdf, nohazdf))
+    x, y = cutcol[0], cutcol[1]
+    xmin, xmax = min(df[x]), max(df[x])
+    ymin, ymax = min(df[y]), max(df[y])
+
+    datacut = df[cutcol].as_matrix()
+    datacut, scales = ld.normalize_dataset(datacut)
+
+    ndata = len(datacut)
+    sgincol = np.reshape(np.ones(ndata), (ndata, 1))
+    datacut_ = np.append(datacut, sgincol, axis=1)
+
+    rest = pd.concat((hazdf_rest, nohazdf_rest))
+    rest = rest[rest[x] >= xmin]
+    rest = rest[rest[x] <= xmax]
+
+    rest = rest[rest[y] >= ymin]
+    rest = rest[rest[y] <= ymax]
+
+    restcut = rest[cutcol].as_matrix()
+    restcut, scales = ld.normalize_dataset(restcut)
+    nrest = len(restcut)
+    sgoutcol = np.reshape(np.zeros(nrest), (nrest, 1))
+    restcut_ = np.append(restcut, sgoutcol, axis=1)
+
+    data_rest = np.concatenate((datacut_, restcut_))
+    data_rest = np.random.permutation(data_rest)
+
+    xtrain, ytrain = ld.split_by_lastcol(data_rest)
+    clf = clf.fit(xtrain, ytrain)
+
+    # c = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    # c1i = np.where(c==1)[0]
+    # c0i = np.where(c==0)[0]
+
+    return clf
 
 def split_by_clf(clf, cutcol, haz_train, nohaz_train, 
                  haz_test=None, nohaz_test=None, verbose=True):
@@ -84,13 +123,6 @@ def split_by_clf(clf, cutcol, haz_train, nohaz_train,
 #     return haz_concat, nohaz_concat
     return (haz_test_1, nohaz_test_1), (haz_test_0, nohaz_test_0), scales
         
-
-# def get_cmap(n):
-#     color_norm  = colors.Normalize(vmin=0, vmax=n-1)
-#     scalar_map = cm.ScalarMappable(norm=color_norm, cmap='hsv') 
-#     colors_list = [scalar_map.to_rgba(index) for index in range(n)]
-#     return colors_list
-
 def classify_hazardous(datasets, clf, crossval=False):
     xtrain, ytrain, xtest, ytest = get_learndata(datasets)
     # map(normalize_dataset, [xtrain, xtest])
@@ -163,57 +195,6 @@ def density_clusters(data_x, eps=0.015, min_samples=100, plotclusters=False,
         plt.show()
     return dbsc
 
-# def common_bounds(datasets):
-#     ncols = [dataset.shape[1] for dataset in datasets]
-#     if len(np.unique(ncols)) > 1:
-#         raise ValueError("number of columns in datasets does not match")
-
-#     ncol = ncols[0]
-#     min_vals = [None]*ncol
-#     max_vals = [None]*ncol
-#     for dataset in datasets:
-#         for col in range(ncol):
-#             col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
-#             comp_min = (col_min, min_vals[col])
-#             min_vals[col] = min(comp_min) if None not in comp_min else col_min
-#             max_vals[col] = max(col_max, max_vals[col])
-#     return (min_vals, max_vals)
-
-# def normalize_dataset(dataset, copy=True, bounds=None):
-    
-#     if copy:
-#         dataset_out = np.zeros_like(dataset)
-#     else:
-#         dataset_out = dataset
-
-#     # check shape of bounds
-#     # if bounds is not None:
-
-#     if len(dataset.shape) > 1:
-#         scales = []
-#         ncol = dataset.shape[1]    
-#         for col in range(ncol):
-#             if bounds is None:
-#                 col_min, col_max = np.min(dataset[:, col]), np.max(dataset[:, col])
-#             else:
-#                 col_min, col_max = bounds[0][col], bounds[1][col]
-
-#             scales.append((col_min, col_max))
-#             scale = col_max - col_min
-#             dataset_out[:, col] = (dataset[:, col] - col_min)/scale
-#         # return dataset_out
-#     else:
-#         if bounds is None:
-#             data_min, data_max = np.min(dataset), np.max(dataset)
-#         else:
-#             data_min, data_max = bounds[0][0], bounds[1][0]
-
-#         scale = data_max - data_min
-#         scales = [data_min, data_max]
-#         dataset_out = (dataset - data_min)/scale
-        
-#     return dataset_out, scales
-
 def merge_clusters(data, labels, class_id, tail=False):
     """Merges all density-based clusters and add class ID column"""
     if tail:
@@ -234,7 +215,6 @@ def merge_clusters(data, labels, class_id, tail=False):
 
     return merged, leftovers
 
-    
 def classify_clusters(data, clf, haz_test, nohaz_test, dens_layers):
     """Classifies data by density cluster IDs and calculates hazardous
        asteroids' mass fraction in clusters."""
@@ -344,7 +324,6 @@ def extract_dbclusters(data, dens_layers, verbose=False):
             print [ec[0][-1], len(ec)]
     return extracted_clusters
 
-
 def merge_dbclusters(clusters, megrgemap, merge_rest=True):
     
     clusters_merged = []
@@ -401,8 +380,6 @@ def merge_dbclusters(clusters, megrgemap, merge_rest=True):
 
     return clusters_merged
 
-
-
 def split_minigroups(subgroup, levels):
     slices = list(zip(levels[:-1]*0.001, levels[1:]*1.001))
     # print "slices:", slices
@@ -418,29 +395,6 @@ def split_minigroups(subgroup, levels):
                 break
 #     return minigroups
     return minigroups_inds
-
-
-# def linearcut_rotate(p1, p2, haz_cut, nohaz_cut):
-#     # a = (p1[1] - p2[1]) / (p1[0] - p2[0])
-#     # b = p2[1] - a * p2[0]
-    
-#     p1a, p2a = np.asarray(p1), np.asarray(p2)
-#     v = p2a - p1a
-#     v0 = -v/np.linalg.norm(v)
-    
-#     x0 = np.array([0,1])
-#     cosphi = np.dot(v0, x0)
-#     sinphi = math.sqrt(1 - cosphi**2)
-#     MR = np.array([[cosphi, -sinphi], [sinphi, cosphi]])
-    
-#     haz_cut_rot = np.asarray([np.dot(hz, MR) for hz in haz_cut])
-#     nohaz_cut_rot = np.asarray([np.dot(nhz, MR) for nhz in nohaz_cut])
-    
-#     p1_rot = np.dot(p1a, MR)
-#     p2_rot = np.dot(p2a, MR)
-    
-#     return p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot
-
 
 def normgrid_kde(kde, num=101, levnum=4, scales=[(0,1), (0,1)]):
     grid = np.linspace(0, 1, num)
@@ -674,3 +628,42 @@ if __name__ == '__main__':
 #     print "predict_haz_fraction:", predict_haz_fraction
 #     print "true_haz_fraction:", true_haz_fraction
 # # return predict
+
+# def clf_mask(hazdf, nohazdf, clf, cutcol, bgnum):
+
+#     haz_cut, nohaz_cut = ld.cut_params(hazdf, nohazdf, cutcol)
+#     bounds = ld.common_bounds([haz_cut, nohaz_cut])
+#     haz_cut, haz_sc = ld.normalize_dataset(haz_cut, bounds)
+#     nohaz_cut, nohaz_sc = ld.normalize_dataset(nohaz_cut, bounds)
+#     data = np.concatenate(haz_cut, nohaz_cut)
+#     ndata = len(data)
+#     phacol = np.reshape(np.ones(ndata), (ndata, 1))
+#     data_ = np.append(data, phacol, axis=1)
+
+#     xb = yb = [0.0, 1.0]
+#     xx, yy = ld._get_datagrid(xb, yb, num)
+#     x_ = xx.ravel()
+#     y_ = yy.ravel()
+#     xcol = np.reshape(x_, (bgnum, 1))
+#     ycol = np.reshape(y_, (bgnum, 1))
+#     bgcol = np.reshape(np.zeros(bgnum), (bgnum, 1))
+#     bg = np.concatenate((xcol, ycol, bgcol), axis=1)
+
+#     data_bg = np.concatenate((data_, bg))
+#     data_bg = np.random.permutation(data_bg)
+
+#     xtrain, ytrain = ld.split_by_lastcol(data_bg)
+#     clf = clf.fit(xtrain, ytrain)
+
+#     # c = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+#     # c1i = np.where(c==1)[0]
+#     # c0i = np.where(c==0)[0]
+
+#     return clf
+
+
+# def get_cmap(n):
+#     color_norm  = colors.Normalize(vmin=0, vmax=n-1)
+#     scalar_map = cm.ScalarMappable(norm=color_norm, cmap='hsv') 
+#     colors_list = [scalar_map.to_rgba(index) for index in range(n)]
+#     return colors_list

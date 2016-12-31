@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.ticker as ticker
 from matplotlib import cm
-
+from copy import deepcopy
 import learn_data as ld
 # from string import split
 # import matplotlib.colors as mpl_colors
@@ -61,35 +61,6 @@ def plot_onegroup(dataset, clf, lev, levels, labels=None, fig=None, subplot=111,
     ax.grid(True)
     if show:
         plt.show()
-
-
-
-# def plot_minigroups():
-
-#     ax1 = fig.add_subplot(*sp1)
-#     ax1 = fig.add_subplot(131)
-#     xx, yy = vd._get_datagrid(xtrain_mg11[:,0], xtrain_mg11[:,1], num)
-#     z = clf11.predict(np.c_[xx.ravel(), yy.ravel()])
-#     # print np.unique(z)
-#     z_hazind = np.where(z == 1.0)
-#     z[z_hazind] = -4.
-#     # z = z
-#     # levels = len(np.unique(z))
-#     # zz = (z-0.5).reshape(xx.shape)
-#     zz = z.reshape(xx.shape)
-
-#     # ax1.contourf(xx, yy, zz, cmap=cmap, norm=mpl.colors.Normalize(vmin=-3.8, vmax=0.0))
-#     ax1.pcolor(xx, yy, zz, cmap=cmap, vmin=-4, vmax=0.0)
-#     ax1.set_xlim([xx.min(), xx.max()])
-#     ax1.set_ylim([yy.min(), yy.max()])
-#     ax1.set_xlabel(labels[0])
-#     ax1.set_ylabel(labels[1])
-#     # plt.clim(-3.8,0.0)
-#     ax1.grid(True)
-
-
-
-
 
 def plot_kde(kde, levnum=4, numpoints=101, figsize=(10,10), scales=[(0,1), (0,1)]):
     fig = plt.figure(figsize=figsize)
@@ -267,7 +238,8 @@ def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None,
     plt.show()
 
 def plot_densclusters(datasets, labels=None, scales=[(0, 1), (0, 1)], 
-                      invertaxes=[0, 0], figsize=(12,10), cmap='winter', grid_color=None):
+                      invertaxes=[0, 0], figsize=(12,10), cmap='winter', 
+                      grid_color=None):
     # fig, ax = plt.subplots(figsize=figsize)
     fig = plt.figure(figsize=figsize)
     # bgcolor = (0.05, 0.06, 0.14)
@@ -283,7 +255,8 @@ def plot_densclusters(datasets, labels=None, scales=[(0, 1), (0, 1)],
     xlim, ylim = [], []
 
     _add_scatterplots(ax, datasets, colors, xlim, ylim, scales)
-    _adjust_axes(ax, labels=labels, xlim=xlim, ylim=ylim, invertaxes=invertaxes, grid_color=grid_color)
+    _adjust_axes(ax, labels=labels, xlim=xlim, ylim=ylim, invertaxes=invertaxes,
+                 grid_color=grid_color)
 
     _add_colorbar(cbax, len(datasets), cmap, 'DB cluster ID')
     # rescale_axes(ax, scales)
@@ -390,18 +363,9 @@ def _adjust_axes(ax, labels=None, xlim=None, ylim=None, invertaxes=[0,0], grid_c
         [xl.set_linewidth(3) for xl in xlines]
         [yl.set_linewidth(3) for yl in ylines]
         
-
-
 def _get_datagrid(x, y, num):
-    # print "num:", num
     xmin, xmax = np.min(x), np.max(x)
     ymin, ymax = np.min(y), np.max(y)
-    # hx = float(xmax - xmin)/num
-    # hy = float(ymax - ymin)/num
-    # print "hx:", hx
-    # print "hy:", hy
-    # xx, yy = np.meshgrid(np.arange(xmin, xmax, hx),
-    #                      np.arange(ymin, ymax, hy))
     xx, yy = np.meshgrid(np.linspace(xmin, xmax, num),
                          np.linspace(ymin, ymax, num))
     return xx, yy
@@ -461,76 +425,94 @@ def plot_scatter_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labe
     # plt.clim(-3.8, 0.3)
     plt.show()
 
-def plot_contour_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
-                    clustprobs=None, rescale=True, scales=[(0,1), (0,1)],
-                    invertaxes=[0, 0], figsize=(10,10), cmap='winter_r', 
-                    colors=["yellow","darkblue"], norm_color=None, subgroups=None,
-                    grid_color=None):
+def plot_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
+                    clustprobs=None, rescale=True, scales=None, invertaxes=[0, 0], 
+                    figsize=(10,10), cmap=cm.jet, grid_color=None, mode='2d',
+                    cb_title=None, clf_masks=None):
     
     fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111)
-    cbax = fig.add_axes(_cbar_size)
-    # ax = fig.add_subplot(111, projection='3d')
-    # ax = Axes3D(fig)
+    if mode == '3d':
+        ax = Axes3D(fig)
+        # ax = fig.add_subplot(111, projection='3d')
+    elif mode == '2d':
+        # ax = fig.add_subplot(111)
+        ax = fig.add_axes(_axsize)
+        cbax = fig.add_axes(_cbar_size)
+    else:
+        raise AttributeError("'mode' attribute must be one of '2d' and '3d'.")
 
     if plotbounds is not None:
         xb, yb, zb = plotbounds
     else:
         xb = yb = zb = [0.0, 1.0]
 
-    xs = np.array([])
-    ys = np.array([])
-    zs = np.array([])
-
     xx, yy = _get_datagrid(xb, yb, num)
-    # print "xx.shape:", xx.shape
     x_ = xx.ravel()
     y_ = yy.ravel()
 
     z0 = np.zeros(len(x_))
-    # zz = z0.reshape(xx.shape)
-    # z1 = z0
-
     zlayers = np.linspace(zb[0], zb[1], num)
+    # if scales is not None:
+    #     zlayers = _rescale(zlayers, scales[2])
+    # zsc = max(zlayers) - min(zlayers)
     for zi in zlayers:
+        # print "zi:", zi
         z_ = np.empty(len(y_))
         # z_ = np.full((len(y_),), zi)
         z_.fill(zi)
 
         c = clf.predict(np.c_[x_, y_, z_])
-        c1i = np.where(c==1)
-        c0i = np.where(c==0)
+        c1i = np.where(c==1)[0]
+        c0i = np.where(c==0)[0]
 
         z_[c0i] = z_[c0i] - 2.0
         z_ = np.maximum(z_, z0)
         z0 = z_
-        
-    # if rescale:
-    #     xx, yy = _get_datagrid(scales[0], scales[1], num)
+    
+    if scales is not None:
+        xxs, yys = _get_datagrid(scales[0], scales[1], num)
+        xs_, ys_, zs_ = [_rescale(ar, scales[i]) for i, ar in enumerate([x_, y_, z_])]
+    else:
+        xxs, yys = xx, yy
+        xs_, ys_, zs_ = x_, y_, z_
 
-    # ax.scatter(xs, ys, zs, c='r', marker='o', lw=0, alpha=1.0, s=10)
-    # ax.scatter(x_, y_, z_, c='r', marker='o', lw=0, alpha=1.0, s=10)
-    zz = z_.reshape(xx.shape)
-    # ax.plot_surface(xx, yy, zz)
-    # ax.plot_trisurf(x_, y_, z_, cmap=cm.jet, linewidth=0)
-    ax.contourf(xx, yy, zz, cmap=cm.jet) # cm.jet
-    cb_title = "Perihelion distance"
-    _add_colorbar(cbax, len(np.unique(z_)), cmap, cb_title)
-    # plt.clim(-3.8, 0.3)
+    if clf_masks is not None:
+        for clfm in clf_masks:
+            clf_, v = clfm
+            c = clf_.predict(np.c_[x_, y_])
+            ccut = np.where(c==v)[0]
+            zs_[ccut] = -1
+
+    zzs = zs_.reshape(xx.shape)
+
+    _adjust_axes(ax, labels=labels, xlim=[xxs.min(), xxs.max()], 
+                 ylim=[yys.min(), yys.max()], invertaxes=invertaxes, 
+                 grid_color=grid_color)
+
+    if mode == '3d':
+        # ax.plot_surface(xx, yy, zz)
+        ax.plot_trisurf(xs_, ys_, zs_, cmap=cmap, linewidth=0)
+    else:
+        # levels = np.linspace(np.min(zz), np.max(zz), 100)
+        levels = np.linspace(0, np.max(zzs), 100)
+        mpp = ax.contourf(xxs, yys, zzs, cmap=cmap, levels=levels) # cm.jet
+        # mpp = ax.pcolor(xx, yy, zz, cmap=cmap)
+        if cb_title is None:
+            cb_title = "Perihelion distance"
+        # _add_colorbar(cbax, len(np.unique(z_)), cmap, cb_title)
+        # cb = mpl.colorbar.ColorbarBase(cbax, cmap=cmap, orientation='vertical', label=cb_title)
+        # cb = ax.add_cbar()
+        plt.colorbar(mappable=mpp, cax=cbax, ax=ax)
+
     plt.show()
 
+def _rescale(data, scales):
+    xmin, xmax = scales
+    data_sc = data * float(xmax-xmin) + xmin
+    return data_sc
 
 
-
-
-
-
-
-
-
-
-
-
+### Orbits ###
 
 def get_ellipse(a, e, npoints = 50):
     f = a*e
@@ -598,6 +580,32 @@ def plot_orbits2D(orb_original, orb_inclined, orb_rotated):
     # ax.set_zlabel('Z Label')
     plt.show()
 
+
+### Leftovers ###
+
+
+# def plot_minigroups():
+
+#     ax1 = fig.add_subplot(*sp1)
+#     ax1 = fig.add_subplot(131)
+#     xx, yy = vd._get_datagrid(xtrain_mg11[:,0], xtrain_mg11[:,1], num)
+#     z = clf11.predict(np.c_[xx.ravel(), yy.ravel()])
+#     # print np.unique(z)
+#     z_hazind = np.where(z == 1.0)
+#     z[z_hazind] = -4.
+#     # z = z
+#     # levels = len(np.unique(z))
+#     # zz = (z-0.5).reshape(xx.shape)
+#     zz = z.reshape(xx.shape)
+
+#     # ax1.contourf(xx, yy, zz, cmap=cmap, norm=mpl.colors.Normalize(vmin=-3.8, vmax=0.0))
+#     ax1.pcolor(xx, yy, zz, cmap=cmap, vmin=-4, vmax=0.0)
+#     ax1.set_xlim([xx.min(), xx.max()])
+#     ax1.set_ylim([yy.min(), yy.max()])
+#     ax1.set_xlabel(labels[0])
+#     ax1.set_ylabel(labels[1])
+#     # plt.clim(-3.8,0.0)
+#     ax1.grid(True)
 
 # def rescale_axes(ax, scales):
     # ax.set_autoscaley_on(False)
