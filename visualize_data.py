@@ -29,93 +29,27 @@ colnames_norm = {k: string.split(v, ',')[0] + ' (normalized)' for k, v in colnam
 combs = list(itertools.combinations(['a', 'i', 'w', 'e', 'q', 'om'], 2))
 
 
-def plot_onegroup(dataset, clf, lev, levels, labels=None, fig=None, subplot=111, 
-                  figsize=(10,10), cmap='CMRmap_r', num=100, show=True):
-    
-    if fig is None:
-        fig = plt.figure(figsize=figsize) 
-    ax = fig.add_subplot(subplot)
-    xx, yy = _get_datagrid(dataset[:,0], dataset[:,1], num)
-    z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
-    z_hazind = np.where(z == 1.0)
-    z[z_hazind] = lev
-    zz = z.reshape(xx.shape)
-    # ax1.contourf(xx, yy, zz, cmap=cmap, norm=mpl.colors.Normalize(vmin=-3.8, vmax=0.0))
-    # ax1.pcolor(xx, yy, zz, cmap=cmap, vmin=-4, vmax=0.0)
-    ax.pcolor(xx, yy, zz, cmap=cmap, vmin=levels[0], vmax=levels[1])
-    ax.set_xlim([xx.min(), xx.max()])
-    ax.set_ylim([yy.min(), yy.max()])
-    if labels is not None:
-        ax.set_xlabel(labels[0])
-        ax.set_ylabel(labels[1])
-
-    # plt.clim(-3.8,0.0)
-
-    xlines = ax.get_xgridlines()
-    ylines = ax.get_ygridlines()
-    [xl.set_color('grey') for xl in xlines]
-    [yl.set_color('grey') for yl in ylines]
-    [xl.set_linewidth(3) for xl in xlines]
-    [yl.set_linewidth(3) for yl in ylines]
-
-    ax.grid(True)
-    if show:
-        plt.show()
-
-def plot_kde(kde, levnum=4, numpoints=101, figsize=(10,10), scales=[(0,1), (0,1)]):
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111)
-
-    grid = np.linspace(0,1,101)
-    X, Y = np.meshgrid(grid, grid)
-    xy = np.vstack([X.ravel(), Y.ravel()]).T
-    Z = kde.score_samples(xy).reshape(X.shape)
-    levels = np.linspace(0, Z.max(), levnum)
-    X_, Y_ = _get_datagrid(scales[0], scales[1], 101)
-    
-    ax.contourf(X_, Y_, Z, levels=levels, cmap=plt.cm.Reds)
-    ax.grid(True)
-    plt.show()
-
-    return levels
-
-def linearcut_plot(p1, p2, haz_cut, nohaz_cut, figsize=(20,10), 
-                   commonscales=True, invertaxes=[0,0], labels=None):
-    px, py = np.array([p1, p2]).T
-    fig = plt.figure(figsize=figsize)
-
-    if commonscales:
-        xvals = np.concatenate((haz_cut[..., 0], nohaz_cut[..., 0]))
-        yvals = np.concatenate((haz_cut[..., 1], nohaz_cut[..., 1]))
-        xlims = [min(xvals), max(xvals)]
-        ylims = [min(yvals), max(yvals)]
-        lims = [xlims, ylims]
-    else:
-        lims = None
-    
-    ax1 = fig.add_subplot(121)
-    # xlim, ylim = [], []
-    # _add_scatterplots(ax1, [nohaz_cut], ['blue'], xlim, ylim, [(0, 1), (0, 1)])
-    plot_distribution(ax=ax1, haz=None, nohaz=nohaz_cut, labels=labels, 
-                      invertaxes=invertaxes, lims=lims)
-    ax1.plot(px, py, lw=2, color='red')
-    # ax1.set_xlim([min(xlim), max(xlim)])
-    # ax1.set_ylim([min(ylim), max(ylim)])
-    plt.grid(True)
-    
-    ax2 = fig.add_subplot(122)
-    # xlim, ylim = [], []
-    # _add_scatterplots(ax2, [haz_cut], ['orange'], xlim, ylim, [(0, 1), (0, 1)])
-    plot_distribution(ax=ax2, haz=haz_cut, nohaz=None, labels=labels, 
-                      invertaxes=invertaxes, lims=lims)
-    ax2.plot(px, py, lw=2, color='red')
-    # ax2.set_xlim([min(xlim), max(xlim)])
-    # ax2.set_ylim([min(ylim), max(ylim)])
-    plt.grid(True)
+def display_allparams(datasets, combs, names, plotsize=10, commonscales=True):
+    """
+    Plots all combinations of pairs of orbital parameters for PHAs 
+    and non-PHAs separately.
+    """
+    nplot = 0
+    nrows = len(combs)
+    fig = plt.figure(figsize=(2*plotsize, nrows*plotsize))
+    for comb in combs:
+        xname, yname = comb
+        nplot = display_param2d(list(comb), [names[xname], names[yname]], 
+                                datasets, nplot, nrows, fig, commonscales=commonscales)
+        # print "nplot:", nplot
     plt.show()
 
 def display_param2d(cols, labels, datasets_, nplot=0, nrows=1, fig=None, 
                     figsize=(20,10), invertaxes=[0,0], commonscales=True):
+    """
+    Plots distribution of pair of orbital parameters for PHAs
+    and non-PHAs separately.
+    """
 
     # datasets = ld.prepare_data(cutcol=cols, datasets=datasets_)
     # datasets_x = [datasets[i][:, :-1] for i in range(len(datasets_))]
@@ -155,15 +89,43 @@ def display_param2d(cols, labels, datasets_, nplot=0, nrows=1, fig=None,
     else:
         return nplot
 
-def display_allparams(datasets, combs, names, plotsize=10, commonscales=True):
-    nplot = 0
-    nrows = len(combs)
-    fig = plt.figure(figsize=(2*plotsize, nrows*plotsize))
-    for comb in combs:
-        xname, yname = comb
-        nplot = display_param2d(list(comb), [names[xname], names[yname]], 
-                                datasets, nplot, nrows, fig, commonscales=commonscales)
-        # print "nplot:", nplot
+def linearcut_plot(p1, p2, haz_cut, nohaz_cut, figsize=(20,10), 
+                   commonscales=True, invertaxes=[0,0], labels=None):
+    """
+    Plots split line over the distribution of pair of orbital parameters for PHAs
+    and non-PHAs separately.
+    """
+    px, py = np.array([p1, p2]).T
+    fig = plt.figure(figsize=figsize)
+
+    if commonscales:
+        xvals = np.concatenate((haz_cut[..., 0], nohaz_cut[..., 0]))
+        yvals = np.concatenate((haz_cut[..., 1], nohaz_cut[..., 1]))
+        xlims = [min(xvals), max(xvals)]
+        ylims = [min(yvals), max(yvals)]
+        lims = [xlims, ylims]
+    else:
+        lims = None
+    
+    ax1 = fig.add_subplot(121)
+    # xlim, ylim = [], []
+    # _add_scatterplots(ax1, [nohaz_cut], ['blue'], xlim, ylim, [(0, 1), (0, 1)])
+    plot_distribution(ax=ax1, haz=None, nohaz=nohaz_cut, labels=labels, 
+                      invertaxes=invertaxes, lims=lims)
+    ax1.plot(px, py, lw=2, color='red')
+    # ax1.set_xlim([min(xlim), max(xlim)])
+    # ax1.set_ylim([min(ylim), max(ylim)])
+    plt.grid(True)
+    
+    ax2 = fig.add_subplot(122)
+    # xlim, ylim = [], []
+    # _add_scatterplots(ax2, [haz_cut], ['orange'], xlim, ylim, [(0, 1), (0, 1)])
+    plot_distribution(ax=ax2, haz=haz_cut, nohaz=None, labels=labels, 
+                      invertaxes=invertaxes, lims=lims)
+    ax2.plot(px, py, lw=2, color='red')
+    # ax2.set_xlim([min(xlim), max(xlim)])
+    # ax2.set_ylim([min(ylim), max(ylim)])
+    plt.grid(True)
     plt.show()
 
 def plot_classifier(data, clf, num=1e2, haz=None, nohaz=None, labels=None, 
@@ -301,7 +263,6 @@ def plot_distribution3d(haz, nohaz):
     ax.set_zlabel('Z Label')
     plt.show()
 
-
 def _add_colorbar(ax, ncolors, cm, label, values=None):
 
     cmap = mpl.cm.get_cmap(cm, ncolors)
@@ -382,6 +343,140 @@ def get_colorlist(n, cmap='winter_r'):
     colors_list = [scalar_map.to_rgba(index) for index in range(n)]
     return colors_list
 
+def plot_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
+                    clustprobs=None, rescale=True, scales=None, invertaxes=[0, 0], 
+                    figsize=(10,10), cmap=cm.jet, grid_color=None, mode='2d',
+                    cb_title=None, clf_masks=None):
+
+    """
+    Plots 3-parameter classifier desicion surface.
+    """
+    
+    fig = plt.figure(figsize=figsize)
+    if mode == '3d':
+        ax = Axes3D(fig)
+        # ax = fig.add_subplot(111, projection='3d')
+    elif mode == '2d':
+        # ax = fig.add_subplot(111)
+        ax = fig.add_axes(_axsize)
+        cbax = fig.add_axes(_cbar_size)
+    else:
+        raise AttributeError("'mode' attribute must be one of '2d' and '3d'.")
+
+    if plotbounds is not None:
+        xb, yb, zb = plotbounds
+    else:
+        xb = yb = zb = [0.0, 1.0]
+
+    xx, yy = _get_datagrid(xb, yb, num)
+    x_ = xx.ravel()
+    y_ = yy.ravel()
+
+    z0 = np.zeros(len(x_))
+    zm = deepcopy(z0)
+    zlayers = np.linspace(zb[0], zb[1], num)
+    # if scales is not None:
+    #     zlayers = _rescale(zlayers, scales[2])
+    # zsc = max(zlayers) - min(zlayers)
+
+    # apply mask for the points that belong to the subgroup
+    if clf_masks is not None:
+        for clfm in clf_masks:
+            clf_, v = clfm
+            c = clf_.predict(np.c_[x_, y_])
+            ccut = np.where(c == v)[0]
+            zm[ccut] = -1
+
+        # pni = np.where(z0 < 0)[0]
+        ppi = np.where(zm == 0)[0]
+        xp_ = x_[ppi]
+        yp_ = y_[ppi]
+        # zp_ = z0[ppi]
+        z0_ = np.zeros(len(xp_))
+    else:
+        # xp_, yp_, zp = x_, y_, z0
+        xp_, yp_ = x_, y_
+        z0_ = z0
+
+    # extract clf-outlined surface layer by layer
+    for zi in zlayers:
+        # print "zi:", zi
+        zp_ = np.empty(len(yp_))
+        # z_ = np.full((len(y_),), zi)
+        zp_.fill(zi)
+
+        c = clf.predict(np.c_[xp_, yp_, zp_])
+        c1i = np.where(c == 1)[0]
+        c0i = np.where(c == 0)[0]
+
+        zp_[c0i] = zp_[c0i] - 2.0
+        zp_ = np.maximum(zp_, z0_)
+        z0_ = zp_
+
+    if clf_masks is not None:
+        z_ = deepcopy(z0)
+        # pni = np.where(z0 < 0)[0]
+        z_[ppi] = zp_
+
+    else:
+        z_ = zp_
+
+    # rescale datapoints
+    if scales is not None:
+        xxs, yys = _get_datagrid(scales[0], scales[1], num)
+        xs_, ys_, zs_ = [_rescale(ar, scales[i]) for i, ar in enumerate([x_, y_, z_])]
+        levels = np.linspace(np.min(zs_), np.max(zs_), 100)
+    else:
+        xxs, yys = xx, yy
+        xs_, ys_, zs_ = x_, y_, z_
+        levels = np.linspace(0.0, 1.0, 100)
+    
+    # print "np.min(zs_):", np.min(zs_)
+
+    # levels = np.linspace(np.min(zs_), np.max(zs_), 100)
+    # levels = np.linspace(np.min(z0), np.max(zs_), 100)
+
+    # if clf_masks is not None:
+    #     for clfm in clf_masks:
+    #         clf_, v = clfm
+    #         c = clf_.predict(np.c_[x_, y_])
+    #         ccut = np.where(c==v)[0]
+    #         zs_[ccut] = -1
+
+    # lower points not belonging to the subgroup
+    if clf_masks is not None:
+        pni = np.where(zm < 0)[0]
+        # zs_[pni] = -1
+        below = min(zs_) * 2 - max(zs_)
+        zs_[pni] = below
+
+    zzs = zs_.reshape(xx.shape)
+    _adjust_axes(ax, labels=labels, xlim=[xxs.min(), xxs.max()], 
+                 ylim=[yys.min(), yys.max()], invertaxes=invertaxes, 
+                 grid_color=grid_color)
+
+    if mode == '3d':
+        # ax.plot_surface(xx, yy, zz)
+        ax.plot_trisurf(xs_, ys_, zs_, cmap=cmap, linewidth=0)
+    else:
+        # levels = np.linspace(np.min(zzs), np.max(zzs), 100)
+        # levels = np.linspace(0, np.max(zzs), 100)
+        mpp = ax.contourf(xxs, yys, zzs, cmap=cmap, levels=levels) # cm.jet levels=levels
+        # mpp = ax.pcolor(xxs, yys, zzs, cmap=cmap)
+        if cb_title is None:
+            cb_title = "Perihelion distance"
+        # _add_colorbar(cbax, len(np.unique(z_)), cmap, cb_title)
+        # cb = mpl.colorbar.ColorbarBase(cbax, cmap=cmap, orientation='vertical', label=cb_title)
+        # cb = ax.add_cbar()
+        plt.colorbar(mappable=mpp, cax=cbax, ax=ax)
+
+    plt.show()
+
+def _rescale(data, scales):
+    xmin, xmax = scales
+    data_sc = data * float(xmax-xmin) + xmin
+    return data_sc
+
 def plot_scatter_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
                     clustprobs=None, rescale=True, scales=[(0,1), (0,1)],
                     invertaxes=[0, 0], figsize=(10,10), cmap='winter_r', 
@@ -425,91 +520,55 @@ def plot_scatter_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labe
     # plt.clim(-3.8, 0.3)
     plt.show()
 
-def plot_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
-                    clustprobs=None, rescale=True, scales=None, invertaxes=[0, 0], 
-                    figsize=(10,10), cmap=cm.jet, grid_color=None, mode='2d',
-                    cb_title=None, clf_masks=None):
+def plot_onegroup(dataset, clf, lev, levels, labels=None, fig=None, subplot=111, 
+                  figsize=(10,10), cmap='CMRmap_r', num=100, show=True):
     
+    if fig is None:
+        fig = plt.figure(figsize=figsize) 
+    ax = fig.add_subplot(subplot)
+    xx, yy = _get_datagrid(dataset[:,0], dataset[:,1], num)
+    z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    z_hazind = np.where(z == 1.0)
+    z[z_hazind] = lev
+    zz = z.reshape(xx.shape)
+    # ax1.contourf(xx, yy, zz, cmap=cmap, norm=mpl.colors.Normalize(vmin=-3.8, vmax=0.0))
+    # ax1.pcolor(xx, yy, zz, cmap=cmap, vmin=-4, vmax=0.0)
+    ax.pcolor(xx, yy, zz, cmap=cmap, vmin=levels[0], vmax=levels[1])
+    ax.set_xlim([xx.min(), xx.max()])
+    ax.set_ylim([yy.min(), yy.max()])
+    if labels is not None:
+        ax.set_xlabel(labels[0])
+        ax.set_ylabel(labels[1])
+
+    # plt.clim(-3.8,0.0)
+
+    xlines = ax.get_xgridlines()
+    ylines = ax.get_ygridlines()
+    [xl.set_color('grey') for xl in xlines]
+    [yl.set_color('grey') for yl in ylines]
+    [xl.set_linewidth(3) for xl in xlines]
+    [yl.set_linewidth(3) for yl in ylines]
+
+    ax.grid(True)
+    if show:
+        plt.show()
+
+def plot_kde(kde, levnum=4, numpoints=101, figsize=(10,10), scales=[(0,1), (0,1)]):
     fig = plt.figure(figsize=figsize)
-    if mode == '3d':
-        ax = Axes3D(fig)
-        # ax = fig.add_subplot(111, projection='3d')
-    elif mode == '2d':
-        # ax = fig.add_subplot(111)
-        ax = fig.add_axes(_axsize)
-        cbax = fig.add_axes(_cbar_size)
-    else:
-        raise AttributeError("'mode' attribute must be one of '2d' and '3d'.")
+    ax = fig.add_subplot(111)
 
-    if plotbounds is not None:
-        xb, yb, zb = plotbounds
-    else:
-        xb = yb = zb = [0.0, 1.0]
-
-    xx, yy = _get_datagrid(xb, yb, num)
-    x_ = xx.ravel()
-    y_ = yy.ravel()
-
-    z0 = np.zeros(len(x_))
-    zlayers = np.linspace(zb[0], zb[1], num)
-    # if scales is not None:
-    #     zlayers = _rescale(zlayers, scales[2])
-    # zsc = max(zlayers) - min(zlayers)
-    for zi in zlayers:
-        # print "zi:", zi
-        z_ = np.empty(len(y_))
-        # z_ = np.full((len(y_),), zi)
-        z_.fill(zi)
-
-        c = clf.predict(np.c_[x_, y_, z_])
-        c1i = np.where(c==1)[0]
-        c0i = np.where(c==0)[0]
-
-        z_[c0i] = z_[c0i] - 2.0
-        z_ = np.maximum(z_, z0)
-        z0 = z_
+    grid = np.linspace(0,1,101)
+    X, Y = np.meshgrid(grid, grid)
+    xy = np.vstack([X.ravel(), Y.ravel()]).T
+    Z = kde.score_samples(xy).reshape(X.shape)
+    levels = np.linspace(0, Z.max(), levnum)
+    X_, Y_ = _get_datagrid(scales[0], scales[1], 101)
     
-    if scales is not None:
-        xxs, yys = _get_datagrid(scales[0], scales[1], num)
-        xs_, ys_, zs_ = [_rescale(ar, scales[i]) for i, ar in enumerate([x_, y_, z_])]
-    else:
-        xxs, yys = xx, yy
-        xs_, ys_, zs_ = x_, y_, z_
-
-    if clf_masks is not None:
-        for clfm in clf_masks:
-            clf_, v = clfm
-            c = clf_.predict(np.c_[x_, y_])
-            ccut = np.where(c==v)[0]
-            zs_[ccut] = -1
-
-    zzs = zs_.reshape(xx.shape)
-
-    _adjust_axes(ax, labels=labels, xlim=[xxs.min(), xxs.max()], 
-                 ylim=[yys.min(), yys.max()], invertaxes=invertaxes, 
-                 grid_color=grid_color)
-
-    if mode == '3d':
-        # ax.plot_surface(xx, yy, zz)
-        ax.plot_trisurf(xs_, ys_, zs_, cmap=cmap, linewidth=0)
-    else:
-        # levels = np.linspace(np.min(zz), np.max(zz), 100)
-        levels = np.linspace(0, np.max(zzs), 100)
-        mpp = ax.contourf(xxs, yys, zzs, cmap=cmap, levels=levels) # cm.jet
-        # mpp = ax.pcolor(xx, yy, zz, cmap=cmap)
-        if cb_title is None:
-            cb_title = "Perihelion distance"
-        # _add_colorbar(cbax, len(np.unique(z_)), cmap, cb_title)
-        # cb = mpl.colorbar.ColorbarBase(cbax, cmap=cmap, orientation='vertical', label=cb_title)
-        # cb = ax.add_cbar()
-        plt.colorbar(mappable=mpp, cax=cbax, ax=ax)
-
+    ax.contourf(X_, Y_, Z, levels=levels, cmap=plt.cm.Reds)
+    ax.grid(True)
     plt.show()
 
-def _rescale(data, scales):
-    xmin, xmax = scales
-    data_sc = data * float(xmax-xmin) + xmin
-    return data_sc
+    return levels
 
 
 ### Orbits ###

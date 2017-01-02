@@ -32,6 +32,10 @@ from read_database import loadObject, dumpObject
 
 
 def sgmask_clf(hazdf, nohazdf, hazdf_rest, nohazdf_rest, clf, cutcol):
+    """
+    Fits classifier to separate asteroids belonging to the subgroup 
+    from the rest of asteroids. 
+    """
 
     df = pd.concat((hazdf, nohazdf))
     x, y = cutcol[0], cutcol[1]
@@ -72,8 +76,11 @@ def sgmask_clf(hazdf, nohazdf, hazdf_rest, nohazdf_rest, clf, cutcol):
 
 def split_by_clf(clf, cutcol, haz_train, nohaz_train, 
                  haz_test=None, nohaz_test=None, verbose=True):
+    """
+    Splits datasets by classifier. Returns subsets of initial datasets split
+    by classifier and scales of each column.
+    """
 
-    
     haz_test = deepcopy(haz_train) if haz_test is None else haz_test
     nohaz_test = deepcopy(nohaz_train) if nohaz_test is None else nohaz_test
     

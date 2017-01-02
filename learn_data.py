@@ -133,6 +133,33 @@ def split_by_colval(dataset, colname, value):
     dataset_right = dataset[dataset[colname] > value]
     return dataset_left, dataset_right
 
+def extend_by_copies(dataset, colname, extend_factor=0.5):
+    """
+    Returns detaset extended by shifted copies of original dataset.
+    """
+
+    extendcol = dataset[colname]
+    scale = max(extendcol) - min(extendcol)
+    cutval_left = scale * extend_factor
+    cutval_right = max(extendcol) - scale * extend_factor
+
+    left = deepcopy(dataset[dataset[colname] < cutval_left])
+    right = deepcopy(dataset[dataset[colname] > cutval_right])
+
+    left[colname] = left[colname] + scale 
+    right[colname] = right[colname] - scale
+    data_extend = pd.concat((left, dataset, right))
+
+    return data_extend
+
+
+
+
+
+
+
+
+
 def add_doublemirror_column(dataset, colname, value):
     # dataset_ = deepcopy(dataset)
     left, right = split_by_colval(dataset, colname, value)
