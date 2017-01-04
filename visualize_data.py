@@ -344,14 +344,16 @@ def get_colorlist(n, cmap='winter_r'):
     return colors_list
 
 def plot_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
-                    clustprobs=None, rescale=True, scales=None, invertaxes=[0, 0], 
-                    figsize=(10,10), cmap=cm.jet, grid_color=None, mode='2d',
-                    cb_title=None, clf_masks=None):
+                    rescale=True, scales=None, invertaxes=[0, 0], figsize=(10,10),
+                    cmap=cm.jet, grid_color=None, mode='2d', clf_masks=None, 
+                    mask_level='above'):
 
     """
     Plots 3-parameter classifier desicion surface.
     """
-    
+    labels_xy = labels[:2]
+    cb_title = labels[2]
+
     fig = plt.figure(figsize=figsize)
     if mode == '3d':
         ax = Axes3D(fig)
@@ -431,29 +433,27 @@ def plot_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None,
         xs_, ys_, zs_ = x_, y_, z_
         levels = np.linspace(0.0, 1.0, 100)
     
-    # print "np.min(zs_):", np.min(zs_)
-
-    # levels = np.linspace(np.min(zs_), np.max(zs_), 100)
-    # levels = np.linspace(np.min(z0), np.max(zs_), 100)
-
-    # if clf_masks is not None:
-    #     for clfm in clf_masks:
-    #         clf_, v = clfm
-    #         c = clf_.predict(np.c_[x_, y_])
-    #         ccut = np.where(c==v)[0]
-    #         zs_[ccut] = -1
-
     # lower points not belonging to the subgroup
     if clf_masks is not None:
         pni = np.where(zm < 0)[0]
-        # zs_[pni] = -1
-        below = min(zs_) * 2 - max(zs_)
-        zs_[pni] = below
+        # zs_[pni] = 5
+        # below = min(zs_) * 2 - max(zs_)
+        # below = max(zs_) + 2
+        
+        if mask_level == 'above':
+            exclude = max(zs_) + 1
+        elif mask_level == 'below':
+            exclude = min(zs_) - 1
+        else:
+            raise AttributeError("mask_level argument must by one of 'above' or 'below'.")
+
+        zs_[pni] = exclude
 
     zzs = zs_.reshape(xx.shape)
-    _adjust_axes(ax, labels=labels, xlim=[xxs.min(), xxs.max()], 
+    _adjust_axes(ax, labels=labels_xy, xlim=[xxs.min(), xxs.max()], 
                  ylim=[yys.min(), yys.max()], invertaxes=invertaxes, 
                  grid_color=grid_color)
+    ax.grid(True)
 
     if mode == '3d':
         # ax.plot_surface(xx, yy, zz)
@@ -463,12 +463,10 @@ def plot_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None,
         # levels = np.linspace(0, np.max(zzs), 100)
         mpp = ax.contourf(xxs, yys, zzs, cmap=cmap, levels=levels) # cm.jet levels=levels
         # mpp = ax.pcolor(xxs, yys, zzs, cmap=cmap)
-        if cb_title is None:
-            cb_title = "Perihelion distance"
         # _add_colorbar(cbax, len(np.unique(z_)), cmap, cb_title)
         # cb = mpl.colorbar.ColorbarBase(cbax, cmap=cmap, orientation='vertical', label=cb_title)
         # cb = ax.add_cbar()
-        plt.colorbar(mappable=mpp, cax=cbax, ax=ax)
+        plt.colorbar(mappable=mpp, cax=cbax, ax=ax, label=cb_title)
 
     plt.show()
 
