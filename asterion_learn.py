@@ -1,3 +1,4 @@
+from __future__ import division
 import math
 import numpy as np
 import pandas as pd
@@ -94,6 +95,7 @@ def split_by_clf(clf, cutcol, haz_train, nohaz_train,
     nohaz_train_cut, nohaz_train_sc = ld.normalize_dataset(nohaz_train_cut, bounds)
     haz_test_cut, haz_test_sc = ld.normalize_dataset(haz_test_cut, bounds)
     nohaz_test_cut, nohaz_test_sc = ld.normalize_dataset(nohaz_test_cut, bounds)
+
     scales = ld.common_scales([haz_train_sc, nohaz_train_sc, 
                                haz_test_sc, nohaz_test_sc])
     
@@ -113,16 +115,24 @@ def split_by_clf(clf, cutcol, haz_train, nohaz_train,
     haz_test_0 = haz_test.iloc[haz_0]
     nohaz_test_0 = nohaz_test.iloc[nohaz_0]
     
-    floatlen = lambda db: float(len(db))
-    haz_test_1num, nohaz_test_1num = map(floatlen, [haz_test_1, nohaz_test_1])
-    haz_test_0num, nohaz_test_0num = map(floatlen, [haz_test_0, nohaz_test_0])
+    # floatlen = lambda db: float(len(db))
+    haz_test_1num, nohaz_test_1num = map(len, [haz_test_1, nohaz_test_1])
+    haz_test_0num, nohaz_test_0num = map(len, [haz_test_0, nohaz_test_0])
     
     haz_purity = haz_test_1num/(haz_test_1num + nohaz_test_1num)
     nohaz_purity = nohaz_test_0num/(haz_test_0num + nohaz_test_0num)
     
     if verbose:
         print "purity of PHA region:", haz_purity
-        print "purity of non-PHA region:", nohaz_purity
+        print "number of PHAs in the PHA region:", haz_test_1num
+        print "number of NHAs in the PHA region:", nohaz_test_1num
+        print
+        print "purity of NHA region:", nohaz_purity
+        print "number of PHAs in the NHA region:", haz_test_0num
+        print "number of NHAs in the NHA region:", nohaz_test_0num
+        print
+        print "fraction of correctly classified PHAs:",
+        print haz_test_1num/len(haz_test)
         
     haz_concat = pd.concat((haz_test_1, nohaz_test_1))
     nohaz_concat = pd.concat((haz_test_0, nohaz_test_0))
