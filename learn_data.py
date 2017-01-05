@@ -152,14 +152,6 @@ def extend_by_copies(dataset, colname, extend_factor=0.5):
 
     return data_extend
 
-
-
-
-
-
-
-
-
 def add_doublemirror_column(dataset, colname, value):
     # dataset_ = deepcopy(dataset)
     left, right = split_by_colval(dataset, colname, value)
@@ -214,7 +206,6 @@ def mix_up(hazarr, nohazarr):
     xdata_train, ydata_train = split_by_lastcol(data_train)
     return xdata_train, ydata_train
 
-
 def common_scales(scale_sets):
     scales = np.concatenate(scale_sets, axis=1)
     scales_ = []
@@ -224,6 +215,15 @@ def common_scales(scale_sets):
         scales_.append((min_val, max_val))
     return scales_
 
+def dfcommon_bounds(datasets, cols):
+    bounds = []
+    for col in cols:
+        sc = []
+        for db in datasets:
+            col_min, col_max = min(db[col]), max(db[col])
+            sc += [col_min, col_max]
+        bounds.append((min(sc), max(sc)))
+    return bounds
 
 def common_bounds(datasets):
     ncols = [dataset.shape[1] for dataset in datasets]
