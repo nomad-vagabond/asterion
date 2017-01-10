@@ -79,7 +79,7 @@ def cut_magnitude(database, target='under', threshold=22.0):
         cut_h = database[database.H >= threshold]
     return cut_h
 
-def get_neo(database, subset):
+def get_neas(database, subset):
     database_neo = database[database.neo == "Y"]
     # subset = ['pha', 'H', 'e', 'a', 'q', 'i', 'om', 'w', 'moid']
     database_clear = database_neo.dropna(subset=subset)
