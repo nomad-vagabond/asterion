@@ -20,6 +20,25 @@ sources = ['./asteroid_data/haz_rand_2e5.p',
            './asteroid_data/nohaz_test.p']
 
 
+def cut_normalize(cutcol, *haz_nohaz_pairs):
+
+    pair_cuts = []
+    for pair in haz_nohaz_pairs:
+        haz_cut, nohaz_cut = cut_params(pair[0], pair[1], cutcol)
+        pair_cuts.append([haz_cut, nohaz_cut])
+
+    all_cuts = [cut for pair in pair_cuts for cut in pair]
+    bounds = common_bounds(all_cuts)
+
+    cut_scales = []
+    for cut in all_cuts:
+        cut_norm, sc = normalize_dataset(cut, bounds, copy=False)
+        cut_scales.append(sc)
+    
+    scales = common_scales(cut_scales)
+
+    return pair_cuts, scales
+
 def ncut_params(hazdf, nohazdf, cutcol, bounds=None):
     import asterion_learn as al
     haz_cut, nohaz_cut = cut_params(hazdf, nohazdf, cutcol)
@@ -123,8 +142,10 @@ def cut_params(hazdf, nohazdf, cutcol):
 
     data_arr = []
     for dataframe in [hazdf, nohazdf]:
-        cutdata = dataframe[cutcol]
-        arr = cutdata.as_matrix()
+        if dataframe is not None:
+            cutdata = dataframe[cutcol]
+            arr = cutdata.as_matrix()
+        else: arr = None
         data_arr.append(arr)
     return data_arr
 
