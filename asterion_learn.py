@@ -31,114 +31,103 @@ import learn_data as ld
 from read_database import loadObject, dumpObject
 # reload(ld)
 
+def sgmask_clf2d(clf, inner, outer):
+    """
+    Fits classifier to separate asteroids belonging to the subgroup 
+    from the rest of asteroids. 
+    """
+    innum = len(inner)
+    sgincol = np.reshape(np.ones(innum), (innum, 1))
+    inner_ = np.append(inner, sgincol, axis=1)
 
-def sgmask_clf(hazdf, nohazdf, hazdf_rest, nohazdf_rest, clf, cutcol):
+    outnum = len(outer)
+    sgoutcol = np.reshape(np.zeros(outnum), (outnum, 1))
+    outer_ = np.append(outer, sgoutcol, axis=1)
+
+    together = np.concatenate((inner_, outer_))
+    together = np.random.permutation(together)
+
+    xtrain, ytrain = ld.split_by_lastcol(together)
+    clf = clf.fit(xtrain, ytrain)
+
+    return clf
+
+def sgmask_clf2d_fit(clf, cutcol, inner, outer, scales):
     """
     Fits classifier to separate asteroids belonging to the subgroup 
     from the rest of asteroids. 
     """
 
-    df = pd.concat((hazdf, nohazdf))
-    x, y = cutcol[0], cutcol[1]
-    xmin, xmax = min(df[x]), max(df[x])
-    ymin, ymax = min(df[y]), max(df[y])
+    x, y = cutcol
+    xmin, xmax = scales[0]
+    ymin, ymax = scales[1]
 
-    datacut = df[cutcol].as_matrix()
-    datacut, scales = ld.normalize_dataset(datacut)
+    inner_c = inner[cutcol]
+    outer_c = outer[cutcol]
 
-    ndata = len(datacut)
-    sgincol = np.reshape(np.ones(ndata), (ndata, 1))
-    datacut_ = np.append(datacut, sgincol, axis=1)
+    inner_c = inner_c[inner_c[x] >= xmin]
+    inner_c = inner_c[inner_c[x] <= xmax]
+    inner_c = inner_c[inner_c[y] >= ymin]
+    inner_c = inner_c[inner_c[y] <= ymax]
 
-    rest = pd.concat((hazdf_rest, nohazdf_rest))
-    rest = rest[rest[x] >= xmin]
-    rest = rest[rest[x] <= xmax]
+    outer_c = outer_c[outer_c[x] >= xmin]
+    outer_c = outer_c[outer_c[x] <= xmax]
+    outer_c = outer_c[outer_c[y] >= ymin]
+    outer_c = outer_c[outer_c[y] <= ymax]
 
-    rest = rest[rest[y] >= ymin]
-    rest = rest[rest[y] <= ymax]
+    inner_cut = inner_c.as_matrix()
+    outer_cut = outer_c.as_matrix()
 
-    restcut = rest[cutcol].as_matrix()
-    restcut, scales = ld.normalize_dataset(restcut)
-    nrest = len(restcut)
-    sgoutcol = np.reshape(np.zeros(nrest), (nrest, 1))
-    restcut_ = np.append(restcut, sgoutcol, axis=1)
+    bounds = np.asarray(scales).T
 
-    data_rest = np.concatenate((datacut_, restcut_))
-    data_rest = np.random.permutation(data_rest)
+    inner_cut, insc = ld.normalize_dataset(inner_cut, bounds=bounds)
+    outer_cut, outsc = ld.normalize_dataset(outer_cut, bounds=bounds)
 
-    xtrain, ytrain = ld.split_by_lastcol(data_rest)
+    innum = len(inner_cut)
+    sgincol = np.reshape(np.ones(innum), (innum, 1))
+    inner_cut_id = np.append(inner_cut, sgincol, axis=1)
+
+    outnum = len(outer_cut)
+    sgoutcol = np.reshape(np.zeros(outnum), (outnum, 1))
+    outer_cut_id = np.append(outer_cut, sgoutcol, axis=1)
+
+    together = np.concatenate((inner_cut_id, outer_cut_id))
+    together = np.random.permutation(together)
+
+    xtrain, ytrain = ld.split_by_lastcol(together)
     clf = clf.fit(xtrain, ytrain)
-
-    # c = clf.predict(np.c_[xx.ravel(), yy.ravel()])
-    # c1i = np.where(c==1)[0]
-    # c0i = np.where(c==0)[0]
 
     return clf
 
-def split_by_clf(clf, cutcol, haz_train, nohaz_train, 
-                 haz_test=None, nohaz_test=None, verbose=True):
-    """
-    Splits datasets by classifier. Returns subsets of initial datasets split
-    by classifier and scales of each column.
-    """
+def clf_split_quality(clf, haz_cut, nohaz_cut, verbose=True):
 
-    haz_test = deepcopy(haz_train) if haz_test is None else haz_test
-    nohaz_test = deepcopy(nohaz_train) if nohaz_test is None else nohaz_test
-    
-    haz_train_cut, nohaz_train_cut = ld.cut_params(haz_train, nohaz_train, cutcol)
-    haz_test_cut, nohaz_test_cut = ld.cut_params(haz_test, nohaz_test, cutcol)
-
-    bounds = ld.common_bounds([haz_train_cut, nohaz_train_cut, 
-                               haz_test_cut, nohaz_test_cut])
-    
-    haz_train_cut, haz_train_sc = ld.normalize_dataset(haz_train_cut, bounds)
-    nohaz_train_cut, nohaz_train_sc = ld.normalize_dataset(nohaz_train_cut, bounds)
-    haz_test_cut, haz_test_sc = ld.normalize_dataset(haz_test_cut, bounds)
-    nohaz_test_cut, nohaz_test_sc = ld.normalize_dataset(nohaz_test_cut, bounds)
-
-    scales = ld.common_scales([haz_train_sc, nohaz_train_sc, 
-                               haz_test_sc, nohaz_test_sc])
-    
-    xtrain, ytrain = ld.mix_up(haz_train_cut, nohaz_train_cut)
-    clf = clf.fit(xtrain, ytrain)
-    
-    haz_clf = clf.predict(haz_test_cut)
-    nohaz_clf = clf.predict(nohaz_test_cut)
+    haz_clf = clf.predict(haz_cut)
+    nohaz_clf = clf.predict(nohaz_cut)
     
     haz_1 = np.where(haz_clf == 1)[0]
     nohaz_1 = np.where(nohaz_clf == 1)[0]
     haz_0 = np.where(haz_clf == 0)[0]
     nohaz_0 = np.where(nohaz_clf == 0)[0]
-    
-    haz_test_1 = haz_test.iloc[haz_1]
-    nohaz_test_1 = nohaz_test.iloc[nohaz_1]
-    haz_test_0 = haz_test.iloc[haz_0]
-    nohaz_test_0 = nohaz_test.iloc[nohaz_0]
-    
+      
     # floatlen = lambda db: float(len(db))
-    haz_test_1num, nohaz_test_1num = map(len, [haz_test_1, nohaz_test_1])
-    haz_test_0num, nohaz_test_0num = map(len, [haz_test_0, nohaz_test_0])
+    haz_1num, nohaz_1num = map(len, [haz_1, nohaz_1])
+    haz_0num, nohaz_0num = map(len, [haz_0, nohaz_0])
     
-    haz_purity = haz_test_1num/(haz_test_1num + nohaz_test_1num)
-    nohaz_purity = nohaz_test_0num/(haz_test_0num + nohaz_test_0num)
+    haz_purity = haz_1num/(haz_1num + nohaz_1num)
+    nohaz_purity = nohaz_0num/(haz_0num + nohaz_0num)
     
     if verbose:
         print "purity of PHA region:", haz_purity
-        print "number of PHAs in the PHA region:", haz_test_1num
-        print "number of NHAs in the PHA region:", nohaz_test_1num
+        print "number of PHAs in the PHA region:", haz_1num
+        print "number of NHAs in the PHA region:", nohaz_1num
         print
         print "purity of NHA region:", nohaz_purity
-        print "number of PHAs in the NHA region:", haz_test_0num
-        print "number of NHAs in the NHA region:", nohaz_test_0num
+        print "number of PHAs in the NHA region:", haz_0num
+        print "number of NHAs in the NHA region:", nohaz_0num
         print
-        print "fraction of correctly classified PHAs:",
-        print haz_test_1num/len(haz_test)
-        
-    haz_concat = pd.concat((haz_test_1, nohaz_test_1))
-    nohaz_concat = pd.concat((haz_test_0, nohaz_test_0))
+        print "fraction of correctly classified PHAs:", haz_1num/len(haz_cut)
 
-#     return haz_concat, nohaz_concat
-    return (haz_test_1, nohaz_test_1), (haz_test_0, nohaz_test_0), scales
+    return haz_1, nohaz_1, haz_0, nohaz_0
         
 def classify_hazardous(datasets, clf, crossval=False):
     xtrain, ytrain, xtest, ytest = get_learndata(datasets)
@@ -425,94 +414,125 @@ def normgrid_kde(kde, num=101, levnum=4, scales=[(0,1), (0,1)]):
 
 
 
+### Deprecated ##
 
 
+def sgmask_clf(hazdf, nohazdf, hazdf_rest, nohazdf_rest, clf, cutcol):
+    """
+    Fits classifier to separate asteroids belonging to the subgroup 
+    from the rest of asteroids. 
+    """
+
+    df = pd.concat((hazdf, nohazdf))
+    x, y = cutcol[0], cutcol[1]
+    xmin, xmax = min(df[x]), max(df[x])
+    ymin, ymax = min(df[y]), max(df[y])
+
+    datacut = df[cutcol].as_matrix()
+    datacut, scales = ld.normalize_dataset(datacut)
+
+    ndata = len(datacut)
+    sgincol = np.reshape(np.ones(ndata), (ndata, 1))
+    datacut_ = np.append(datacut, sgincol, axis=1)
+
+    rest = pd.concat((hazdf_rest, nohazdf_rest))
+    rest = rest[rest[x] >= xmin]
+    rest = rest[rest[x] <= xmax]
+
+    rest = rest[rest[y] >= ymin]
+    rest = rest[rest[y] <= ymax]
+
+    restcut = rest[cutcol].as_matrix()
+    restcut, scales = ld.normalize_dataset(restcut)
+    nrest = len(restcut)
+    sgoutcol = np.reshape(np.zeros(nrest), (nrest, 1))
+    restcut_ = np.append(restcut, sgoutcol, axis=1)
+
+    data_rest = np.concatenate((datacut_, restcut_))
+    data_rest = np.random.permutation(data_rest)
+
+    xtrain, ytrain = ld.split_by_lastcol(data_rest)
+    clf = clf.fit(xtrain, ytrain)
+
+    # c = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    # c1i = np.where(c==1)[0]
+    # c0i = np.where(c==0)[0]
+
+    return clf
 
 
-if __name__ == '__main__':
+def split_by_clf(clf, cutcol, haz_train, nohaz_train, 
+                 haz_test=None, nohaz_test=None, verbose=True):
+    """
+    Splits datasets by classifier. Returns subsets of initial datasets split
+    by classifier and scales of each column.
+    """
 
-    ### LOAD DATASETS ###
-    sources = ['./asteroid_data/haz_rand_2e5m.p', 
-               './asteroid_data/nohaz_rand_2e5m.p',
-               './asteroid_data/haz_test.p', 
-               './asteroid_data/nohaz_test.p']
-    dumped = map(loadObject, sources)
-    datasets = prepare_data(cutcol=['w', 'q'], datasets=dumped)
-    labels=['Argument of periapsis (w)', 'Perihelion distance (q)']
-    # xdata_train, ydata_train, xdata_test, ydata_test = get_learndata(datasets)
+    haz_test = deepcopy(haz_train) if haz_test is None else haz_test
+    nohaz_test = deepcopy(nohaz_train) if nohaz_test is None else nohaz_test
+    
+    haz_train_cut, nohaz_train_cut = ld.cut_params(haz_train, nohaz_train, cutcol)
+    haz_test_cut, nohaz_test_cut = ld.cut_params(haz_test, nohaz_test, cutcol)
 
-    ### DISPLAY PARAMETERS DISTRIBUTION ###
-    datasets_x = [datasets[i][:, :-1] for i in range(4)]
-    haz_gen, nohaz_gen, haz_real, nohaz_real = datasets_x
-    vd.plot_distribution(haz=haz_real, nohaz=nohaz_real, labels=labels)
-    vd.plot_distribution(haz=haz_gen, nohaz=nohaz_gen, labels=labels)
+    bounds = ld.common_bounds([haz_train_cut, nohaz_train_cut, 
+                               haz_test_cut, nohaz_test_cut])
+    
+    haz_train_cut, haz_train_sc = ld.normalize_dataset(haz_train_cut, bounds)
+    nohaz_train_cut, nohaz_train_sc = ld.normalize_dataset(nohaz_train_cut, bounds)
+    haz_test_cut, haz_test_sc = ld.normalize_dataset(haz_test_cut, bounds)
+    nohaz_test_cut, nohaz_test_sc = ld.normalize_dataset(nohaz_test_cut, bounds)
 
-    ### NORMALIZE DATASET'S DIMENSIONS ###
-    x, y = haz_gen[:, 0], haz_gen[:, 1]
-    scales = [(x.min(), x.max()),  (y.min(), y.max())]
-    normalize_dataset_ = partial(ld.normalize_dataset, copy=False)
-    map(normalize_dataset_, [haz_gen, nohaz_gen, haz_real, nohaz_real])
+    scales = ld.common_scales([haz_train_sc, nohaz_train_sc, 
+                               haz_test_sc, nohaz_test_sc])
+    
+    xtrain, ytrain = ld.mix_up(haz_train_cut, nohaz_train_cut)
+    clf = clf.fit(xtrain, ytrain)
+    
+    # haz_clf = clf.predict(haz_test_cut)
+    # nohaz_clf = clf.predict(nohaz_test_cut)
+    
+    # haz_1 = np.where(haz_clf == 1)[0]
+    # nohaz_1 = np.where(nohaz_clf == 1)[0]
+    # haz_0 = np.where(haz_clf == 0)[0]
+    # nohaz_0 = np.where(nohaz_clf == 0)[0]
+    
+    # haz_test_1 = haz_test.iloc[haz_1]
+    # nohaz_test_1 = nohaz_test.iloc[nohaz_1]
+    # haz_test_0 = haz_test.iloc[haz_0]
+    # nohaz_test_0 = nohaz_test.iloc[nohaz_0]
+    
+    # # floatlen = lambda db: float(len(db))
+    # haz_test_1num, nohaz_test_1num = map(len, [haz_test_1, nohaz_test_1])
+    # haz_test_0num, nohaz_test_0num = map(len, [haz_test_0, nohaz_test_0])
+    
+    # haz_purity = haz_test_1num/(haz_test_1num + nohaz_test_1num)
+    # nohaz_purity = nohaz_test_0num/(haz_test_0num + nohaz_test_0num)
+    
+    # if verbose:
+    #     print "purity of PHA region:", haz_purity
+    #     print "number of PHAs in the PHA region:", haz_test_1num
+    #     print "number of NHAs in the PHA region:", nohaz_test_1num
+    #     print
+    #     print "purity of NHA region:", nohaz_purity
+    #     print "number of PHAs in the NHA region:", haz_test_0num
+    #     print "number of NHAs in the NHA region:", nohaz_test_0num
+    #     print
+    #     print "fraction of correctly classified PHAs:",
+    #     print haz_test_1num/len(haz_test)
+    
+    predicted = clf_split_quality(clf, haz_test_cut, nohaz_test_cut, verbose=verbose)
+    haz_1, nohaz_1, haz_0, nohaz_0 = predicted
 
+    haz_test_1 = haz_test.iloc[haz_1]
+    nohaz_test_1 = nohaz_test.iloc[nohaz_1]
+    haz_test_0 = haz_test.iloc[haz_0]
+    nohaz_test_0 = nohaz_test.iloc[nohaz_0]
 
-    ### CLASSIFY HAZARDOUS AND NONHAZARDOUS ASTEROIDS ###
-    clf = KNeighborsClassifier(n_neighbors=500)
-    xtrain, clf = classify_hazardous(datasets, clf, crossval=False)
-    vd.plot_classifier(xtrain, clf, num=200, haz=haz_real, nohaz=nohaz_real, 
-                       cmap='RdBu', labels=labels, scales=scales)
+    haz_concat = pd.concat((haz_test_1, nohaz_test_1))
+    nohaz_concat = pd.concat((haz_test_0, nohaz_test_0))
 
-    ### SPLIT DATA BY DENSITY-BASED CLUSTERS AND ESTIMATE HAZARDOUS ASTEROIDS MASS FRACTION IN CLUSTERS ###
-        
-    # eps = [0.005, 0.0055, 0.008, 0.012] #1e6
-    # min_samples = [200, 180, 160, 100] #1e6
-    eps = [0.01, 0.012, 0.018, 0.023] #2e5
-    min_samples = [195, 190, 150, 100] #2e5
-    # eps = [0.0188, 0.02, 0.027, 0.04] #1e4
-    # min_samples = [275, 220, 140, 100] #1e4
-    # eps = [0.02, 0.025, 0.027, 0.04] #1e4
-    # min_samples = [200, 200, 140, 100] #1e4
-
-    dens_layers = zip(eps, min_samples)
-    # scales = [(0,360), (0,1)]
-    # clf = KNeighborsClassifier(n_neighbors=int(0.01*len(haz_gen)))
-    clf = svm.SVC(gamma=80) #kernel='poly'
-    clusters, xtrain, clf, haz_prob = classify_clusters(haz_gen, clf, haz_real, 
-                                                     nohaz_real, dens_layers)
-    vd.plot_densclusters(clusters, scales=scales, labels=labels)
-    vd.plot_classifier(xtrain, clf, num=200, haz=haz_real, nohaz=nohaz_real,
-                       clustprobs=haz_prob, scales=scales, labels=labels)
-
-
-
-
-
-    # ### FIND DENSITY-BASED CLUSTERS ###
-    # densclust = density_clusters(haz_gen, eps=0.0188, min_samples=275)  # eps=0.016, min_samples=180 200
-
-
-    # # clusters = range(n_clusters)
-
-    # labels = densclust.labels_
-
-    # haz_clust, nohaz_clust, rest_ind = estimate_clusters(haz_gen, haz_real, nohaz_real, labels) 
-    # # haz_real, nohaz_real | haz_gen, nohaz_gen
-
-    # clusters_ind2 = np.where(labels == -1)
-    # haz_gen2 = haz_gen[clusters_ind2]
-    # densclust, n_clusters = density_clusters(haz_gen2, eps=0.023, min_samples=150)
-    # labels2 = densclust.labels_
-    # haz_clust2, nohaz_clust2, rest_ind2 = estimate_clusters(haz_gen2, haz_real, nohaz_real, labels2) 
-    # haz_real, nohaz_real | haz_gen, nohaz_gen
-
-
-    # estimate(xdata_train, ydata_train, xdata_test, ydata_test)
-
-    # xdata, ydata = get_learndata(datasets, split=False)
-    # crossval_svc_predict(xdata, ydata)
-    # disp_orbit.show()
-    # clf = loadObject('classifier.p')
-    # print clf.predict(np.array([[0.4, 0.6]]))[0]
-
-    # dumpObject(clf, 'classifier.p')
+#     return haz_concat, nohaz_concat
+    return (haz_test_1, nohaz_test_1), (haz_test_0, nohaz_test_0), scales
 
 
 # def estimate_clusters(data, haz_data, nohaz_data, labels):
