@@ -169,8 +169,13 @@ def plot_distribution3d(haz, nohaz):
 
 def plot_densclusters(datasets, labels=None, scales=None, bgcolor='black',
                       invertaxes=[0, 0], figsize=(8,8), cmap='winter', 
-                      grid_color=None, gridlines=False, s=3, alpha=1):
+                      grid_color=None, gridlines=False, s=3, alpha=1, 
+                      short_label=False):
     
+    labels_ = labels
+    if (labels is not None) and (not short_label):
+        labels_ = [colnames[i] for i in labels]
+
     if scales is None:
         scales = [(0,1), (0,1)]
 
@@ -190,7 +195,7 @@ def plot_densclusters(datasets, labels=None, scales=None, bgcolor='black',
         _add_scatterplot(ax, dataset, color, s, alpha, scales=scales)
     
     xlim, ylim = map(list, scales)
-    _adjust_axes(ax, labels=labels, xlim=xlim, ylim=ylim, invertaxes=invertaxes,
+    _adjust_axes(ax, labels=labels_, xlim=xlim, ylim=ylim, invertaxes=invertaxes,
                  grid_color=grid_color, gridlines=gridlines)
 
     cbax = fig.add_axes(_cbar_size)
