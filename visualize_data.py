@@ -1,23 +1,18 @@
-import string
-import itertools
+import itertools, string
+from copy import deepcopy
+
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.ticker as ticker
 from matplotlib import cm
-from copy import deepcopy
+
 import learn_data as ld
-# from string import split
-# import matplotlib.colors as mpl_colors
-# import matplotlib.cm as cmx
-# from draw_ellipse_3d import OrbitDisplayGL
-# from learn_data import loadObject
+
 
 _axsize = [0.09, 0.05, 0.8, 0.9] # [left, bottom, width, height]
 # _cbar_size = [0.9, 0.25, 0.03, 0.5]
 _cbar_size = [0.9, 0.05, 0.04, 0.9]
-
 
 colnames = {'a':  "Semi-major axis, AU",
             'q':  "Perihelion distance, AU",
@@ -31,8 +26,9 @@ colnames_norm = {k: string.split(v, ',')[0] + ' (normalized)' for k, v in colnam
 combs = list(itertools.combinations(['a', 'i', 'w', 'e', 'q', 'om'], 2))
 
 
-
 def print_summary(extracted, trapped, haz_all, nohaz_all, dataname):
+    """ Prints summary of the classification quality for the PHA subgroup. """
+
     haz_correct_num = sum(map(len, extracted))
     nohaz_trapped_num = sum(map(len, trapped))
 
@@ -65,7 +61,7 @@ def plot_alldistcombs(haz, nohaz, labels=True, plotsize=10):
         xname, yname = comb
         nplot = plot_distributions2d(list(comb), haz, nohaz, nplot, nrows, fig, 
                                      labels=labels)
-        # print "nplot:", nplot
+
     plt.show()
 
 def plot_distributions2d(cutcols, haz, nohaz, nplot=0, nrows=1, fig=None, 
@@ -137,13 +133,11 @@ def plot_distribution2d(cutcol, haz=None, nohaz=None, labels=False,
     ax = fig.add_subplot(111)
 
     haz_cut, nohaz_cut = ld.cut_params(haz, nohaz, cutcol)
-    # print "map(type, [haz_cut, nohaz_cut]):", map(type, [haz_cut, nohaz_cut])
     single = lambda a: a[0] if a[1] is None else a[1]
     if type(None) not in map(type, [haz, nohaz]):
         alldata = np.concatenate((haz_cut, nohaz_cut))
     else:
         alldata = single([haz_cut, nohaz_cut])
-        # print "alldata:", alldata
 
     xlim = [min(alldata[:,0]), max(alldata[:,0])]
     ylim = [min(alldata[:,1]), max(alldata[:,1])]
@@ -172,6 +166,10 @@ def plot_densclusters(datasets, labels=None, scales=None, bgcolor='black',
                       grid_color=None, gridlines=False, s=3, alpha=1, 
                       short_label=False):
     
+    """
+    Plots datapoints of different clusters with different colors.
+    """
+
     labels_ = labels
     if (labels is not None) and (not short_label):
         labels_ = [colnames[i] for i in labels]
@@ -180,17 +178,11 @@ def plot_densclusters(datasets, labels=None, scales=None, bgcolor='black',
         scales = [(0,1), (0,1)]
 
     fig = plt.figure(figsize=figsize)
-    # bgcolor = (0.05, 0.06, 0.14)
-    # bgcolor = (0.0, 0.0, 0.0)
-    # bgcolor = "navy"
-    # fig.patch.set_facecolor(bgcolor)
-    
-    # ax = fig.add_subplot(111)
+
     ax = fig.add_axes(_axsize)
     ax.set_axis_bgcolor(bgcolor)
     
-
-    colors = get_colorlist(len(datasets), cmap=(cmap+'_r'))
+    colors = _get_colorlist(len(datasets), cmap=(cmap+'_r'))
     for color, dataset in zip(colors, datasets):
         _add_scatterplot(ax, dataset, color, s, alpha, scales=scales)
     
@@ -200,104 +192,8 @@ def plot_densclusters(datasets, labels=None, scales=None, bgcolor='black',
 
     cbax = fig.add_axes(_cbar_size)
     _add_colorbar(cbax, len(datasets), cmap, 'DB cluster ID')
-    # rescale_axes(ax, scales)
-    # ax.invert_yaxis()
+
     plt.show()
-
-def _add_distplot(ax, dataset, color, s, alpha, labels, xlim, ylim, invertaxes,
-                  gridcolor=None, gridlines=True, xlines=None, ylines=None):
-    
-    _add_scatterplot(ax, dataset, color, s, alpha)
-    _adjust_axes(ax, labels, xlim, ylim, invertaxes, gridcolor, 
-                 gridlines, xlines, ylines)
-
-def _add_scatterplot(ax, dataset, color, s, alpha, scales=None):
-
-    if scales is None:
-        xmin, xmax = 0, 1
-        ymin, ymax = 0, 1
-    else:
-        xmin, xmax = scales[0]
-        ymin, ymax = scales[1]
-
-    xdata = dataset[..., 0]*(xmax - xmin) + xmin
-    ydata = dataset[..., 1]*(ymax - ymin) + ymin
-    ax.scatter(xdata, ydata, s=s, c=color, lw=0, alpha=alpha)
-
-def _add_colorbar(ax, ncolors, cm, label, values=None):
-
-    cmap = mpl.cm.get_cmap(cm, ncolors)
-    # colors = get_colorlist(ncolors, cmap=cm)
-    # print "colors:", colors
-    # print "cmap:", cmap
-    # norm_color = mpl.colors.Normalize(vmin=2, vmax=5) # clip=True
-    # bounds=[0,1,2,3,4]
-    # norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-    # print "cmap:", cmap
-    ticks = range(ncolors + 1)
-    bounds = np.array(ticks) + 0.5
-    # print "bounds:", bounds
-    # norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-    cb = mpl.colorbar.ColorbarBase(ax, cmap=cmap, boundaries=bounds,
-                                   ticks=ticks, spacing='uniform',
-                                   label=label, orientation='vertical')
-    # cbax.yaxis.set_ticklabels(['c%d' %i for i in ticks[::-1]])
-    # cb.clim(-3.8, 0.3)
-    if values is None:
-        values = ['c%d' %i for i in ticks]
-    ax.yaxis.set_ticklabels(values[::-1])
-
-def _adjust_axes(ax, labels=None, xlim=None, ylim=None, invertaxes=[0,0], 
-                 grid_color=None, gridlines=True, xlines=None, ylines=None):
-    # ax.locator_params(axis='y',nbins=10)
-    if xlines is not None:
-        ax.locator_params(axis='x', nbins=xlines)
-    if ylines is not None:
-        ax.locator_params(axis='y', nbins=ylines)
-
-    if len(xlim) >= 2:
-        ax.set_xlim([min(xlim), max(xlim)])
-    if len(ylim) >= 2:
-        ax.set_ylim([min(ylim), max(ylim)])
-
-    if labels is not None:
-        ax.set_ylabel(labels[1])
-        ax.set_xlabel(labels[0])
-
-    if invertaxes[0]:
-        ax.invert_xaxis()
-    if invertaxes[1]:
-        ax.invert_yaxis()
-
-    if grid_color is not None:
-        xlines = ax.get_xgridlines()
-        ylines = ax.get_ygridlines()
-        [xl.set_color(grid_color) for xl in xlines]
-        [yl.set_color(grid_color) for yl in ylines]
-        [xl.set_linewidth(3) for xl in xlines]
-        [yl.set_linewidth(3) for yl in ylines]
-
-    ax.grid(gridlines)
-        
-def _get_datagrid(x, y, num):
-    xmin, xmax = np.min(x), np.max(x)
-    ymin, ymax = np.min(y), np.max(y)
-    xx, yy = np.meshgrid(np.linspace(xmin, xmax, num),
-                         np.linspace(ymin, ymax, num))
-    return xx, yy
-
-def _reverse_cmap(cmap_name):
-    if cmap_name[-2:] == '_r':
-        return cmap_name[:-2]
-    else:
-        return (cmap_name + '_r')
-
-def get_colorlist(n, cmap='winter_r'):
-    color_norm  = mpl.colors.Normalize(vmin=0, vmax=n-1)
-    scalar_map = mpl.cm.ScalarMappable(norm=color_norm, cmap=cmap) 
-    colors_list = [scalar_map.to_rgba(index) for index in range(n)]
-    return colors_list
-
 
 def plot_clf2d(clf, cutcol, num=1e2, haz_cut=None, nohaz_cut=None, labels=True, 
                clustprobs=None, rescale=True, scales=None, pointcolors=None,
@@ -306,9 +202,9 @@ def plot_clf2d(clf, cutcol, num=1e2, haz_cut=None, nohaz_cut=None, labels=True,
                extend_factors=None):
     
     """
-    Plots decision boundaries of the classifier, trained for a 2-dimentional input data. 
+    Plots decision boundaries of the classifier trained for a 2-dimentional input data. 
     Optionally, plots distributions of asteroids by two orbital parameters for PHAs
-    and non-PHAs.
+    and NHAs.
     """
 
     if labels:
@@ -501,7 +397,6 @@ def plot_clf3d(clf, cutcol, plotbounds=None, num=1e2, haz=None, nohaz=None, labe
     _adjust_axes(ax, labels=labels_xy, xlim=[xxs.min(), xxs.max()], 
                  ylim=[yys.min(), yys.max()], invertaxes=invertaxes, 
                  grid_color=grid_color, gridlines=True)
-    # ax.grid(True)
 
     if mode == '3d':
         # ax.plot_surface(xx, yy, zz)
@@ -518,19 +413,17 @@ def plot_clf3d(clf, cutcol, plotbounds=None, num=1e2, haz=None, nohaz=None, labe
 
     plt.show()
 
-def _rescale(data, scales):
-    xmin, xmax = scales
-    data_sc = data * float(xmax-xmin) + xmin
-    return data_sc
-
-def plot_scatter_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None, 
-                    clustprobs=None, rescale=True, scales=[(0,1), (0,1)],
-                    invertaxes=[0, 0], figsize=(10,10), cmap='winter_r', 
-                    colors=["yellow","darkblue"], norm_color=None, subgroups=None,
-                    grid_color=None):
+def plot_scatter_clf3d(clf, plotbounds=None, num=1e2, haz=None, nohaz=None, labels=None,
+                       clustprobs=None, rescale=True, scales=[(0,1), (0,1)],
+                       invertaxes=[0, 0], figsize=(10,10), cmap='winter_r', 
+                       colors=["yellow","darkblue"], norm_color=None, subgroups=None,
+                       grid_color=None):
     
+    """
+    Plots point grid in a 3d space with different colors representing different classes.
+    """
+
     fig = plt.figure(figsize=figsize)
-    # ax = fig.add_subplot(111)
     ax = fig.add_subplot(111, projection='3d')
 
     if plotbounds is not None:
@@ -617,6 +510,96 @@ def plot_kde(kde, levnum=4, numpoints=101, figsize=(10,10), scales=[(0,1), (0,1)
     return levels
 
 
+def _add_colorbar(ax, ncolors, cm, label, values=None):
+
+    cmap = mpl.cm.get_cmap(cm, ncolors)
+    ticks = range(ncolors + 1)
+    bounds = np.array(ticks) + 0.5
+    cb = mpl.colorbar.ColorbarBase(ax, cmap=cmap, boundaries=bounds,
+                                   ticks=ticks, spacing='uniform',
+                                   label=label, orientation='vertical')
+    if values is None:
+        values = ['c%d' %i for i in ticks]
+
+    ax.yaxis.set_ticklabels(values[::-1])
+
+def _add_distplot(ax, dataset, color, s, alpha, labels, xlim, ylim, invertaxes,
+                  gridcolor=None, gridlines=True, xlines=None, ylines=None):
+    
+    _add_scatterplot(ax, dataset, color, s, alpha)
+    _adjust_axes(ax, labels, xlim, ylim, invertaxes, gridcolor, 
+                 gridlines, xlines, ylines)
+
+def _add_scatterplot(ax, dataset, color, s, alpha, scales=None):
+
+    if scales is None:
+        xmin, xmax = 0, 1
+        ymin, ymax = 0, 1
+    else:
+        xmin, xmax = scales[0]
+        ymin, ymax = scales[1]
+
+    xdata = dataset[..., 0]*(xmax - xmin) + xmin
+    ydata = dataset[..., 1]*(ymax - ymin) + ymin
+    ax.scatter(xdata, ydata, s=s, c=color, lw=0, alpha=alpha)
+
+def _adjust_axes(ax, labels=None, xlim=None, ylim=None, invertaxes=[0,0], 
+                 grid_color=None, gridlines=True, xlines=None, ylines=None):
+
+    if xlines is not None:
+        ax.locator_params(axis='x', nbins=xlines)
+    if ylines is not None:
+        ax.locator_params(axis='y', nbins=ylines)
+
+    if len(xlim) >= 2:
+        ax.set_xlim([min(xlim), max(xlim)])
+    if len(ylim) >= 2:
+        ax.set_ylim([min(ylim), max(ylim)])
+
+    if labels is not None:
+        ax.set_ylabel(labels[1])
+        ax.set_xlabel(labels[0])
+
+    if invertaxes[0]:
+        ax.invert_xaxis()
+    if invertaxes[1]:
+        ax.invert_yaxis()
+
+    if grid_color is not None:
+        xlines = ax.get_xgridlines()
+        ylines = ax.get_ygridlines()
+        [xl.set_color(grid_color) for xl in xlines]
+        [yl.set_color(grid_color) for yl in ylines]
+        [xl.set_linewidth(3) for xl in xlines]
+        [yl.set_linewidth(3) for yl in ylines]
+
+    ax.grid(gridlines)
+        
+def _get_datagrid(x, y, num):
+    xmin, xmax = np.min(x), np.max(x)
+    ymin, ymax = np.min(y), np.max(y)
+    xx, yy = np.meshgrid(np.linspace(xmin, xmax, num),
+                         np.linspace(ymin, ymax, num))
+    return xx, yy
+
+def _get_colorlist(n, cmap='winter_r'):
+    color_norm  = mpl.colors.Normalize(vmin=0, vmax=n-1)
+    scalar_map = mpl.cm.ScalarMappable(norm=color_norm, cmap=cmap) 
+    colors_list = [scalar_map.to_rgba(index) for index in range(n)]
+    return colors_list
+
+def _rescale(data, scales):
+    xmin, xmax = scales
+    data_sc = data * float(xmax-xmin) + xmin
+    return data_sc
+
+def _reverse_cmap(cmap_name):
+    if cmap_name[-2:] == '_r':
+        return cmap_name[:-2]
+    else:
+        return (cmap_name + '_r')
+
+
 ### Orbits ###
 
 def get_ellipse(a, e, npoints = 50):
@@ -684,8 +667,6 @@ def plot_orbits2D(orb_original, orb_inclined, orb_rotated):
 
     # ax.set_zlabel('Z Label')
     plt.show()
-
-
 
 
 ### Deprecated ###
@@ -903,7 +884,6 @@ def _add_scatterplots(ax, datasets, colors, xlim, ylim, scales, alpha=1):
 
 ### Leftovers ###
 
-
 # def plot_minigroups():
 
 #     ax1 = fig.add_subplot(*sp1)
@@ -927,25 +907,3 @@ def _add_scatterplots(ax, datasets, colors, xlim, ylim, scales, alpha=1):
 #     # plt.clim(-3.8,0.0)
 #     ax1.grid(True)
 
-# def rescale_axes(ax, scales):
-    # ax.set_autoscaley_on(False)
-    # ax.set_ylim([0,1000])
-    # ax.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
-    # scale_x = 1e-9
-    # ticks_x = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(x/scale_x))
-    # xscale, yscale = scales
-    # if xscale is not None:
-    #     ticks_x = ticker.FuncFormatter(lambda x, pos: '{}'.format((x-xscale[0])*(xscale[1] - xscale[0])))
-    #     ax.xaxis.set_major_formatter(ticks_x)
-
-    # xscale, yscale = scales
-    # if xscale is not None:
-    #     # ax.set_xticks([x/8.0 for x in range(9)])
-    #     xlabels = ax.get_xticks().tolist()
-    #     xlabels_ = [(val-xscale[0])*(xscale[1] - xscale[0]) for val in xlabels]
-    #     ax.set_xticklabels(["%.2f" %f for f in xlabels_])
-    # if yscale is not None:
-    #     # ax.set_yticks([y/8.0 for y in range(9)])
-    #     ylabels = ax.get_yticks().tolist()
-    #     ylabels_ = [(val-yscale[0])*(yscale[1] - yscale[0]) for val in ylabels]
-    #     ax.set_yticklabels(["%.2f" %f for f in ylabels_])

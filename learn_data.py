@@ -1,26 +1,32 @@
-import numpy as np
-import math
-# from generate_random_orbits import dumpObject, loadObject
-# from read_database import calc_rascend, calc_orbc, calc_rclose 
-import read_database as rdb
-# from functools import partial
-import pickle 
+import math, warnings
 from copy import deepcopy
+# import pickle 
+
+import numpy as np
 import pandas as pd
-import warnings
 
-# sources = ['./asteroid_data/haz_rand_1e5.p', 
-#            './asteroid_data/nohaz_rand_1e5.p',
-#            './asteroid_data/haz.p', 
-#            './asteroid_data/nohaz.p']
+import read_database as rdb
 
-sources = ['./asteroid_data/haz_rand_2e5.p', 
-           './asteroid_data/nohaz_rand_2e5.p',
-           './asteroid_data/haz_test.p', 
-           './asteroid_data/nohaz_test.p']
 
+def cut_params(hazdf, nohazdf, cutcol):
+    """ 
+    Cuts columns from the dataframes of PHAs and NHAs specified by 'cutcol'
+    parameter and returns list of corresponding arrays.
+    """
+    data_arr = []
+    for dataframe in [hazdf, nohazdf]:
+        if dataframe is not None:
+            cutdata = dataframe[cutcol]
+            arr = cutdata.as_matrix()
+        else: arr = None
+        data_arr.append(arr)
+    return data_arr
 
 def cut_normalize(cutcol, *haz_nohaz_pairs):
+    """
+    Cuts and normalizes columns from the pairs of dataframes 
+    representing PHAs and NHAs.
+    """
 
     pair_cuts = []
     for pair in haz_nohaz_pairs:
@@ -39,26 +45,17 @@ def cut_normalize(cutcol, *haz_nohaz_pairs):
 
     return pair_cuts, scales
 
-def ncut_params(hazdf, nohazdf, cutcol, bounds=None):
-    import asterion_learn as al
-    haz_cut, nohaz_cut = cut_params(hazdf, nohazdf, cutcol)
-    if bounds is None:
-        bounds = al.common_bounds([haz_cut, nohaz_cut])
-    haz_cut, haz_sc = normalize_dataset(haz_cut, bounds=bounds)
-    nohaz_cut, nohaz_sc = normalize_dataset(nohaz_cut, bounds=bounds)
-    scales = common_scales([haz_sc, nohaz_sc])
-    return haz_cut, nohaz_cut, scales
-
-
 def normalize_dataset(dataset, bounds=None, copy=True):
-    
+    """
+    Normalizes dataset for the boundary values of each column. Boundary values 
+    from the 'bounds' parameter are used unless it is None. Otherwise maximum and
+    minimum values for each column are used as boundary values.
+    """
+
     if copy:
         dataset_out = np.zeros_like(dataset)
     else:
         dataset_out = dataset
-
-    # check shape of bounds
-    # if bounds is not None:
 
     if len(dataset.shape) > 1:
         scales = []
@@ -85,8 +82,12 @@ def normalize_dataset(dataset, bounds=None, copy=True):
         
     return dataset_out, scales
 
-
 def dmirror_clusters(clusters_, colnum, value):
+    """ 
+    Returns clusters with mirrored copies of the original cluster points over 
+    the 'value' and the half value.
+    """
+
     # clusters_cut = [c[:, :-1] for c in clusters]
     clusters = deepcopy(clusters_)
     clusters_dm = []
@@ -97,8 +98,6 @@ def dmirror_clusters(clusters_, colnum, value):
         left_inds = np.where(mircol < value)[0]
         right_inds = list(all_inds - set(left_inds))
         right_inds = np.array(right_inds, dtype=int)
-
-        # print 
 
         mircol[left_inds] = value - mircol[left_inds]
         mircol[right_inds] = 3*value - mircol[right_inds]
@@ -118,36 +117,15 @@ def dmirror_clusters(clusters_, colnum, value):
     return clusters_dm
 
 def append_phacol(hazarr, nohazarr):
-    "Appends PHA id column to the arrays of asteroid's orbital parameters."
+    """Appends PHA id column to the PHA and NHA arrays."""
 
     num_haz, num_nohaz = len(hazarr), len(nohazarr)
     phacol = np.reshape(np.ones(num_haz), (num_haz, 1))
     nophacol = np.reshape(np.zeros(num_nohaz), (num_nohaz, 1))
 
-    # phacol = np.array([[1]*len(hazarr)]).T
-    # nophacol = np.array([[0]*len(nohazarr)]).T
-    # print "phacol:", phacol
-
-    # print "len(phacol):", len(phacol)
-    # print "len(hazarr):", len(hazarr)
-    # print
-    # print "len(nophacol):", len(nophacol)
-    # print "len(nohazarr):", len(nohazarr)
-
     hazarr_ = np.append(hazarr, phacol, axis=1)
     nohazarr_ = np.append(nohazarr, nophacol, axis=1)
     return hazarr_, nohazarr_
-
-def cut_params(hazdf, nohazdf, cutcol):
-
-    data_arr = []
-    for dataframe in [hazdf, nohazdf]:
-        if dataframe is not None:
-            cutdata = dataframe[cutcol]
-            arr = cutdata.as_matrix()
-        else: arr = None
-        data_arr.append(arr)
-    return data_arr
 
 def split_by_colval(dataset, colname, value):
     dataset_left = dataset[dataset[colname] <= value]
@@ -174,60 +152,62 @@ def extend_by_copies(dataset, colname, extend_factor=0.5):
     return data_extend
 
 def add_doublemirror_column(dataset, colname, value):
-    # dataset_ = deepcopy(dataset)
+    """ 
+    Extends dataset by its mirrors over the 'value' and 
+    the half 'value' of the 'colname'.
+    """
+
     left, right = split_by_colval(dataset, colname, value)
     left_mir, right_mir = map(deepcopy, [left, right])
     left_mir[colname] = value - left[colname]
     right_mir[colname] = 3*value - right[colname]
     half_mirror = pd.concat((left_mir, right_mir, dataset))
-    # half_mirror = pd.concat((left_mir, right_mir))
 
     dataset_mirror = deepcopy(half_mirror)
-    # dataset_mirror = deepcopy(dataset)
     dataset_mirror[colname] = value*2 - dataset_mirror[colname]
     dataset_extended = pd.concat((half_mirror, dataset_mirror))
+
     return dataset_extended
-    # return half_mirror
 
 def add_mirror_column(dataset, colname, value):
+    """ Extends dataset by its mirror over the 'value' of the 'colname'. """
+
     dataset_mirror = deepcopy(dataset)
     dataset_mirror[colname] = value*2 - dataset[colname]
     dataset_extended = pd.concat((dataset, dataset_mirror))
+
     return dataset_extended
 
 def shift_and_mirror(dataset, colname, value):
-    left, right = split_by_colval(dataset, colname, value)
+    """ 
+    Extends dataset by its halves flipped over the 'value' of the 'colname'.
+    """
 
+    left, right = split_by_colval(dataset, colname, value)
     left_shift, right_shift = map(deepcopy, [left, right])
     dataset_mirror = deepcopy(dataset)
 
     left_shift[colname] = left_shift[colname] + value
     right_shift[colname] = right_shift[colname] - value
+
     dataset_mirror[colname] = value*2 - dataset_mirror[colname]
-    
     dataset_extended = pd.concat((dataset, left_shift, right_shift, dataset_mirror))
+
     return dataset_extended
 
-def learning_sets(haz, nohaz, cutcol):
-    haz_cut, nohaz_cut = prepare_data(cutcol=cutcol, datasets=[haz, nohaz])
-    merged = np.concatenate((haz_cut, nohaz_cut))
-    data = np.random.permutation(merged)
-    return split_by_lastcol(data)
-
 def mix_up(hazarr, nohazarr):
+    """Generates train data from arrays of PHAs and NHAs"""
 
     hazarr_, nohazarr_ = append_phacol(hazarr, nohazarr)
-
-    # hazidcol = np.array([[1.0]*len(hazarr)]).T
-    # nohazidcol = np.array([[0.0]*len(nohazarr)]).T
-    # hazarr_ = np.append(hazarr, hazidcol, axis=1)
-    # nohazarr_ = np.append(nohazarr, nohazidcol, axis=1)
     join_train = np.concatenate((hazarr_, nohazarr_))
     data_train = np.random.permutation(join_train)
     xdata_train, ydata_train = split_by_lastcol(data_train)
     return xdata_train, ydata_train
 
 def common_scales(scale_sets):
+    """
+    Returns minimal and maximal values of the scales represented by 'scale_sets'.
+    """
     scales = np.concatenate(scale_sets, axis=1)
     scales_ = []
     for col_minmax in scales:
@@ -237,6 +217,9 @@ def common_scales(scale_sets):
     return scales_
 
 def dfcommon_bounds(datasets, cols):
+    """
+    Returns common boundary values (min and max) for each column across the 'datasets'.
+    """
     bounds = []
     for col in cols:
         sc = []
@@ -247,6 +230,10 @@ def dfcommon_bounds(datasets, cols):
     return bounds
 
 def common_bounds(datasets):
+    """
+    Returns tuple lists representing minimal and maximal values of the data columns.
+    """
+
     ncols = [dataset.shape[1] for dataset in datasets]
     if len(np.unique(ncols)) > 1:
         raise ValueError("number of columns in datasets does not match")
@@ -262,35 +249,12 @@ def common_bounds(datasets):
             max_vals[col] = max(col_max, max_vals[col])
     return (min_vals, max_vals)
 
-
-def align_vert(p1, p2, haz_cut, nohaz_cut):
-    # a = (p1[1] - p2[1]) / (p1[0] - p2[0])
-    # b = p2[1] - a * p2[0]
-    
-    p1a, p2a = np.asarray(p1), np.asarray(p2)
-    v = p2a - p1a
-    v0 = -v/np.linalg.norm(v)
-    
-    x0 = np.array([0,1])
-    cosphi = np.dot(v0, x0)
-    sinphi = math.sqrt(1 - cosphi**2)
-    MR = np.array([[cosphi, -sinphi], [sinphi, cosphi]])
-    
-    haz_cut_rot = np.asarray([np.dot(hz, MR) for hz in haz_cut])
-    nohaz_cut_rot = np.asarray([np.dot(nhz, MR) for nhz in nohaz_cut])
-    
-    p1_rot = np.dot(p1a, MR)
-    p2_rot = np.dot(p2a, MR)
-    
-    return p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot
-
-
 def split_by_line(hazdb, nohazdb, line, cols, verbose=True):
-    """Splits hazardous and non-hazardous datasets by a line"""
+    """Splits hazardous and non-hazardous datasets by a line in a 2-dimensional space."""
 
     haz_cut, nohaz_cut = cut_params(hazdb, nohazdb, cols)
     p1, p2 = line
-    rotated = align_vert(p1, p2, haz_cut, nohaz_cut)
+    rotated = _align_vert(p1, p2, haz_cut, nohaz_cut)
     p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot = rotated
     split = p1_rot[0]
 
@@ -319,51 +283,44 @@ def split_by_line(hazdb, nohazdb, line, cols, verbose=True):
 
     return (hazdb_left, nohazdb_left), (hazdb_right, nohazdb_right)
 
-
-
-
-
-# def check_dblengths(func):
-#     def wrapped(haz, nohaz, *args):
-#         if len(haz) != len(nohaz):
-#             print len(haz)
-#             print len(nohaz)
-#             raise ValueError("lengths of datasets doesn't match")
-#         res = func(cols, haz, nohaz)
-#         return res
-#     return wrapped
-
-# sources = ['./asteroid_data/haz_rand_test.p', 
-#            './asteroid_data/nohaz_rand_test.p']
-
-# def loadObject(fname):
-#     obj_file = open(fname,'r')
-#     obj = pickle.load(obj_file)
-#     obj_file.close()
-#     return obj
-
-# def dumpObject(obj, fname):
-#     obj_file = open(fname,'wb')
-#     pickle.dump(obj, obj_file)
-#     obj_file.close()
-
-def form_datasets(data):
-    trial_cut = int(len(data)*0.9)
-    data_trial = data[:trial_cut]
-    data_test = data[trial_cut:]
-    # print "data_trial_rand:\n", data_trial_rand[:10]
-    return data_trial, data_test
-
 def split_by_lastcol(dataset):
     variables = dataset[:, :-1]
     target = dataset[:, -1]
     return variables, target
 
-def get_wir_points(data):
-    for row in data:
-        a, e, i, w, omega, q = row
-        r = get_r(a, e, w)
-        rcol.append(r)
+def _align_vert(p1, p2, haz_cut, nohaz_cut):
+    # a = (p1[1] - p2[1]) / (p1[0] - p2[0])
+    # b = p2[1] - a * p2[0]
+    
+    p1a, p2a = np.asarray(p1), np.asarray(p2)
+    v = p2a - p1a
+    v0 = -v/np.linalg.norm(v)
+    
+    x0 = np.array([0,1])
+    cosphi = np.dot(v0, x0)
+    sinphi = math.sqrt(1 - cosphi**2)
+    MR = np.array([[cosphi, -sinphi], [sinphi, cosphi]])
+    
+    haz_cut_rot = np.asarray([np.dot(hz, MR) for hz in haz_cut])
+    nohaz_cut_rot = np.asarray([np.dot(nhz, MR) for nhz in nohaz_cut])
+    
+    p1_rot = np.dot(p1a, MR)
+    p2_rot = np.dot(p2a, MR)
+    
+    return p1_rot, p2_rot, haz_cut_rot, nohaz_cut_rot
+
+
+
+
+
+
+### Deprecated ###
+
+def cut_2params(cols, datasets):
+    warnings.warn("this function is deprecated. use cut_params instead")
+    datasets = prepare_data(cutcol=cols, datasets=datasets)
+    datasets_x = [datasets[i][:, :-1] for i in range(len(datasets))]
+    return datasets_x[:2]
 
 def prepare_data(cutcol=['a', 'e'], datasets=None):
     # print "prepare..."
@@ -380,48 +337,52 @@ def prepare_data(cutcol=['a', 'e'], datasets=None):
         data_arr.append(arr_)
     return data_arr
 
-def cut_2params(cols, datasets):
-    warnings.warn("this function is deprecated. use cut_params instead")
-    datasets = prepare_data(cutcol=cols, datasets=datasets)
-    datasets_x = [datasets[i][:, :-1] for i in range(len(datasets))]
-    return datasets_x[:2]
+def learning_sets(haz, nohaz, cutcol):
+    haz_cut, nohaz_cut = prepare_data(cutcol=cutcol, datasets=[haz, nohaz])
+    merged = np.concatenate((haz_cut, nohaz_cut))
+    data = np.random.permutation(merged)
+    return split_by_lastcol(data)
 
-def get_learndata(datasets, split=True):
-    # datasets = prepare_data(cutcol)
-    # print "gen..."
-    join_train = np.concatenate((datasets[0], datasets[1]))
-    join_test = np.concatenate((datasets[2], datasets[3]))
+### Leftovers ###
 
-    if split:
-        data_train = np.random.permutation(join_train)
-        data_test = np.random.permutation(join_test)
-        xdata_train, ydata_train = split_by_lastcol(data_train)
-        xdata_test, ydata_test = split_by_lastcol(data_test)
-        # print "xdata_train:", xdata_train[:5]
-        return xdata_train, ydata_train, xdata_test, ydata_test
-    else:
-        mix = np.concatenate((join_train, join_test))
-        permutate = np.random.permutation(mix)
-        xdata, ydata = split_by_lastcol(permutate)
-        return xdata, ydata
+# def form_datasets(data):
+#     trial_cut = int(len(data)*0.9)
+#     data_trial = data[:trial_cut]
+#     data_test = data[trial_cut:]
+#     # print "data_trial_rand:\n", data_trial_rand[:10]
+#     return data_trial, data_test
 
-def update_datasets():
-    loads = map(rdb.loadObject, sources)
-    for dataset in loads:
-        rdb.calc_rascend(dataset)
-        rdb.calc_orbc(dataset)
-        rdb.calc_rclose(dataset)
-    [rdb.dumpObject(obj, fname) for obj, fname in zip(loads, sources)]
+# def get_learndata(datasets, split=True):
+#     # datasets = prepare_data(cutcol)
+#     # print "gen..."
+#     join_train = np.concatenate((datasets[0], datasets[1]))
+#     join_test = np.concatenate((datasets[2], datasets[3]))
+
+#     if split:
+#         data_train = np.random.permutation(join_train)
+#         data_test = np.random.permutation(join_test)
+#         xdata_train, ydata_train = split_by_lastcol(data_train)
+#         xdata_test, ydata_test = split_by_lastcol(data_test)
+#         # print "xdata_train:", xdata_train[:5]
+#         return xdata_train, ydata_train, xdata_test, ydata_test
+#     else:
+#         mix = np.concatenate((join_train, join_test))
+#         permutate = np.random.permutation(mix)
+#         xdata, ydata = split_by_lastcol(permutate)
+#         return xdata, ydata
+
+# def ncut_params(hazdf, nohazdf, cutcol, bounds=None):
+#     import asterion_learn as al
+#     haz_cut, nohaz_cut = cut_params(hazdf, nohazdf, cutcol)
+#     if bounds is None:
+#         bounds = al.common_bounds([haz_cut, nohaz_cut])
+#     haz_cut, haz_sc = normalize_dataset(haz_cut, bounds=bounds)
+#     nohaz_cut, nohaz_sc = normalize_dataset(nohaz_cut, bounds=bounds)
+#     scales = common_scales([haz_sc, nohaz_sc])
+#     return haz_cut, nohaz_cut, scales
 
 
-
-
-
-
-
-if __name__ == '__main__':
-    print "init orbits update..."
-    update_datasets()
-    print "orbits update finished."
-
-
+# if __name__ == '__main__':
+#     print "init orbits update..."
+#     update_datasets()
+#     print "orbits update finished."
